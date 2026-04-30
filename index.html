@@ -337,8 +337,6 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 @media (max-width:720px){
   body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:64px;}
   body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(46vh + 12px);opacity:0;transform:translateY(18px);pointer-events:none;}
-  body.route-card-mode #sidebar{display:none!important;}
-  body.route-card-mode #sidebar-float-toggle{display:none!important;}
   .route-card-track{padding-left:14px;padding-right:14px;gap:10px;}
   .route-mini-card{flex-basis:calc(100vw - 54px);min-height:90px;border-radius:16px;padding:10px 11px;}
   .route-mini-img{width:88px;height:68px;border-radius:12px;}
@@ -964,29 +962,41 @@ function renderCards(){
 
 // ── Route Panel ──
 function renderRoutePanel(){
+  const mobile=isMobileLayout();
   document.getElementById('card-list').style.display='none';
   document.getElementById('empty').style.display='none';
   document.getElementById('route-panel').classList.add('visible');
+  document.getElementById('route-cards').innerHTML=ROUTES.map(r=>`
+    <div class="route-card ${activeRouteId===r.id?'active':''}" onclick="selectRoute('${r.id}')">
+      <div class="route-card-title">${r.title}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${r.desc}</div>
+      <div class="route-card-meta">
+        <span>🕐 ${r.duration}</span>
+        <span>📍 ${r.distance}</span>
+        <span>💠 ${r.stops.length} 个节点</span>
+      </div>
+    </div>`).join('');
+  if(mobile){
+    document.getElementById('sidebar-title').textContent='推荐路线';
+    document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
+    document.getElementById('route-list-view').style.display='';
+    document.getElementById('route-detail-view').style.display='none';
+    return;
+  }
   document.getElementById('sidebar-title').textContent='推荐路线';
   document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
   if(!activeRouteId){
     document.getElementById('route-list-view').style.display='';
     document.getElementById('route-detail-view').style.display='none';
-    document.getElementById('route-cards').innerHTML=ROUTES.map(r=>`
-      <div class="route-card ${activeRouteId===r.id?'active':''}" onclick="selectRoute('${r.id}')">
-        <div class="route-card-title">${r.title}</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${r.desc}</div>
-        <div class="route-card-meta">
-          <span>🕐 ${r.duration}</span>
-          <span>📍 ${r.distance}</span>
-          <span>💠 ${r.stops.length} 个节点</span>
-        </div>
-      </div>`).join('');
   }
 }
 
 function showRouteDetail(id){
   const route=ROUTES.find(r=>r.id===id);
+  if(isMobileLayout()){
+    renderRoutePanel();
+    return;
+  }
   document.getElementById('route-list-view').style.display='none';
   document.getElementById('route-detail-view').style.display='flex';
   document.getElementById('sidebar-title').textContent=route.title;
@@ -1396,7 +1406,7 @@ function selectRoute(id){
   const path=route.stops.map(s=>({lat:s.lat,lng:s.lng}));
   routePolyline=mapProvider.createPolyline({path,map,strokeColor:route.color,strokeOpacity:0.86,strokeWeight:4,icons:[{icon:mapProvider.forwardArrow(route.color,3.2),offset:'100%',repeat:'76px'}]});
   route.stops.forEach((s,i)=>{const m=mapProvider.createMarker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color,i===0),title:s.name,zIndex:i===0?50:10});m.addListener('click',()=>showRouteStop(id,i,true));routeMarkers.push(m);});
-  const bounds=mapProvider.createBounds();route.stops.forEach(s=>mapProvider.extendBounds(bounds,{lat:s.lat,lng:s.lng}));mapProvider.fitBounds(map,bounds,getMapPadding());showRouteDetail(id);if(isMobileLayout())setSidebarCollapsed(true);renderRouteCardStrip(route);
+  const bounds=mapProvider.createBounds();route.stops.forEach(s=>mapProvider.extendBounds(bounds,{lat:s.lat,lng:s.lng}));mapProvider.fitBounds(map,bounds,getMapPadding());renderRoutePanel();showRouteDetail(id);if(isMobileLayout())setSidebarCollapsed(true);renderRouteCardStrip(route);
 }
 function showRouteStop(routeId,idx,scrollCard=true){
   const mapProvider=getMapProvider();
