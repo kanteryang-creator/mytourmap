@@ -37,8 +37,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* MAIN */
 #main{display:flex;flex:1;overflow:hidden}
 #map{flex:1;height:100%}
-.leaflet-container{background:#161410;font-family:'Noto Sans TC',sans-serif}
-.leaflet-tile-pane{filter:saturate(.55) brightness(.75) contrast(1.1)}
+.leaflet-container{background:#1a1a1a;font-family:'Noto Sans TC',sans-serif}
+.leaflet-tile-pane{filter:saturate(.6) brightness(.85)}
 .leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important}
 
 /* SIDEBAR */
@@ -290,8 +290,24 @@ async function savePlaces(showToast=true) {
 }
 
 // ── 地图 ──
-const map = L.map('map', { center:[22.315, 114.175], zoom:13, zoomControl:true, attributionControl:false });
-L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { maxZoom:18 }).addTo(map);
+const map = L.map('map', {
+  center:[22.315, 114.175],
+  zoom:13,
+  zoomControl:true,
+  attributionControl:false,
+  preferCanvas:true,
+  zoomAnimation:false,
+  markerZoomAnimation:false,
+  fadeAnimation:false,
+});
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  maxZoom:18,
+  subdomains:'1234',
+  keepBuffer:4,
+  updateWhenIdle:true,
+  updateWhenZooming:false,
+}).addTo(map);
+
 function makeIcon(cat) {
   const c = CATS[cat] || CATS.custom;
   return L.divIcon({
