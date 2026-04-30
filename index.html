@@ -687,6 +687,10 @@ let placeService=null;
 let routeCardScrollTimer=null;
 let mapsApiPromise=null;
 let placesLibraryPromise=null;
+let directionsService=null;
+let routeWalkPolylines=[];
+let routeWalkLoadToken=0;
+let activeRouteSegments=[];
 
 const EMPTY_STOP_META = {
   unavailable:true,
@@ -702,8 +706,22 @@ const EMPTY_STOP_META = {
   reviews:[],
 };
 
+const WALK_ROUTE_CACHE_KEY='mtm_walk_route_cache_v1';
+
 function createStopMeta(data={}){
   return {...EMPTY_STOP_META,...data};
+}
+
+function getWalkRouteCache(){
+  try{return JSON.parse(localStorage.getItem(WALK_ROUTE_CACHE_KEY)||'{}')||{};}catch(e){return {};}
+}
+
+function setWalkRouteCache(cache){
+  try{localStorage.setItem(WALK_ROUTE_CACHE_KEY,JSON.stringify(cache));}catch(e){}
+}
+
+function getWalkSegmentCacheKey(fromStop,toStop){
+  return `${fromStop.name}|${Number(fromStop.lat).toFixed(5)},${Number(fromStop.lng).toFixed(5)}=>${toStop.name}|${Number(toStop.lat).toFixed(5)},${Number(toStop.lng).toFixed(5)}`;
 }
 
 function getDataSource(){
@@ -780,10 +798,13 @@ const MAP_PROVIDERS = {
       setTimeout(()=>marker?.setAnimation(null),650);
     },
     createPlacesService(instance){ return new google.maps.places.PlacesService(instance); },
+    createDirectionsService(){ return new google.maps.DirectionsService(); },
     async importPlacesLibrary(){
       if(typeof google.maps.importLibrary==='function') await google.maps.importLibrary('places');
     },
     isPlacesStatusOk(status){ return status===google.maps.places.PlacesServiceStatus.OK; },
+    isDirectionsStatusOk(status){ return status===google.maps.DirectionsStatus.OK; },
+    walkingTravelMode(){ return google.maps.TravelMode.WALKING; },
     forwardArrow(color, scale=3.2){ return {path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale,strokeColor:color}; }
   }
 };
@@ -903,6 +924,9 @@ async function initMap(){
     disableDefaultUI:false,zoomControl:true,streetViewControl:false,mapTypeControl:false,fullscreenControl:false,
   });
   infoWindow=mapProvider.createInfoWindow({maxWidth:260});
+  if(mapProvider.createDirectionsService){
+    directionsService=mapProvider.createDirectionsService();
+  }
   map.addListener('click',e=>{
     infoWindow.close();
     if(!addingMode)return;
@@ -1347,6 +1371,106 @@ function closeRouteReviews(){
   modal.classList.remove('open');
   modal.innerHTML='';
 }
+function buildFallbackSegmentPath(fromStop,toStop){
+  return [
+    {lat:fromStop.lat,lng:fromStop.lng},
+    {lat:toStop.lat,lng:toStop.lng},
+  ];
+}
+async function fetchWalkingSegment(fromStop,toStop){
+  const mapProvider=getMapProvider();
+  const key=getWalkSegmentCacheKey(fromStop,toStop);
+  const cache=getWalkRouteCache();
+  const cached=cache[key];
+  if(cached?.path?.length){
+    return {...cached,fromStop,toStop};
+  }
+  if(!directionsService||!mapProvider.walkingTravelMode){
+    return null;
+  }
+  const result=await new Promise(resolve=>{
+    directionsService.route({
+      origin:{lat:fromStop.lat,lng:fromStop.lng},
+      destination:{lat:toStop.lat,lng:toStop.lng},
+      travelMode:mapProvider.walkingTravelMode(),
+      provideRouteAlternatives:false,
+    },(response,status)=>{
+      if(!mapProvider.isDirectionsStatusOk(status)||!response?.routes?.[0]){
+        resolve(null);
+        return;
+      }
+      const leg=response.routes[0].legs?.[0];
+      const overview=response.routes[0].overview_path||[];
+      const path=overview.map(point=>({lat:point.lat(),lng:point.lng()}));
+      resolve(path.length?{
+        path,
+        distanceText:leg?.distance?.text||'',
+        durationText:leg?.duration?.text||'',
+      }:null);
+    });
+  });
+  if(!result)return null;
+  cache[key]={...result,ts:Date.now()};
+  setWalkRouteCache(cache);
+  return {...result,fromStop,toStop};
+}
+function getActiveWalkSegmentIndex(idx,segmentCount){
+  if(segmentCount<=0)return -1;
+  if(idx<=0)return 0;
+  if(idx>=segmentCount)return segmentCount-1;
+  return idx;
+}
+function clearRouteWalkPolylines(){
+  routeWalkPolylines.forEach(line=>line.setMap(null));
+  routeWalkPolylines=[];
+  activeRouteSegments=[];
+}
+function drawRouteWalkSegments(route,segments){
+  const mapProvider=getMapProvider();
+  clearRouteWalkPolylines();
+  activeRouteSegments=segments;
+  routeWalkPolylines=segments.map((segment,idx)=>mapProvider.createPolyline({
+    path:segment.path,
+    map,
+    strokeColor:route.color,
+    strokeOpacity:0.42,
+    strokeWeight:4,
+    zIndex:4,
+  }));
+  updateRouteWalkHighlight(activeStopIdx??0);
+}
+function updateRouteWalkHighlight(idx){
+  if(!routeWalkPolylines.length)return;
+  const activeIdx=getActiveWalkSegmentIndex(idx,routeWalkPolylines.length);
+  routeWalkPolylines.forEach((line,i)=>{
+    line.setOptions({
+      strokeOpacity:i===activeIdx?0.96:0.38,
+      strokeWeight:i===activeIdx?7:4,
+      zIndex:i===activeIdx?12:4,
+      icons:i===activeIdx?[{icon:getMapProvider().forwardArrow((ROUTES.find(r=>r.id===activeRouteId)?.color)||'#111',3.4),offset:'100%',repeat:'96px'}]:[],
+    });
+  });
+}
+async function loadWalkingRouteSegments(route,token){
+  const segments=[];
+  for(let i=0;i<route.stops.length-1;i++){
+    const fromStop=route.stops[i];
+    const toStop=route.stops[i+1];
+    const walked=await fetchWalkingSegment(fromStop,toStop);
+    segments.push({
+      fromStop,
+      toStop,
+      path:walked?.path?.length?walked.path:buildFallbackSegmentPath(fromStop,toStop),
+      isReal:!!walked?.path?.length,
+      distanceText:walked?.distanceText||'',
+      durationText:walked?.durationText||'',
+    });
+    if(token!==routeWalkLoadToken)return;
+  }
+  if(token!==routeWalkLoadToken)return;
+  if(routePolyline){routePolyline.setMap(null);routePolyline=null;}
+  drawRouteWalkSegments(route,segments);
+}
 function buildRouteMiniCard(route,s,idx,meta={}){
   const source=getDataSource();
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
@@ -1394,20 +1518,23 @@ function makeRouteStopIcon(num,color,active=false){
 function selectRoute(id){
   const mapProvider=getMapProvider();
   activeRouteId=id;activeStopIdx=0;const route=ROUTES.find(r=>r.id===id);if(!route)return;clearRoute();
+  routeWalkLoadToken+=1;
+  const currentToken=routeWalkLoadToken;
   const path=route.stops.map(s=>({lat:s.lat,lng:s.lng}));
   routePolyline=mapProvider.createPolyline({path,map,strokeColor:route.color,strokeOpacity:0.86,strokeWeight:4,icons:[{icon:mapProvider.forwardArrow(route.color,3.2),offset:'100%',repeat:'76px'}]});
   route.stops.forEach((s,i)=>{const m=mapProvider.createMarker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color,i===0),title:s.name,zIndex:i===0?50:10});m.addListener('click',()=>showRouteStop(id,i,true));routeMarkers.push(m);});
   const bounds=mapProvider.createBounds();route.stops.forEach(s=>mapProvider.extendBounds(bounds,{lat:s.lat,lng:s.lng}));mapProvider.fitBounds(map,bounds,getMapPadding());renderRoutePanel();showRouteDetail(id);if(isMobileLayout())setSidebarCollapsed(true);renderRouteCardStrip(route);
+  loadWalkingRouteSegments(route,currentToken).catch(err=>console.warn('Walking route load failed',err));
 }
 function showRouteStop(routeId,idx,scrollCard=true){
   const mapProvider=getMapProvider();
   activeStopIdx=idx;activeRouteId=routeId;const route=ROUTES.find(r=>r.id===routeId);if(!route||!route.stops[idx])return;const s=route.stops[idx];
   if(shouldUseMobileRouteCards()){}else openRoutePlaceCard(route,s,idx);
-  updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);map.panTo({lat:s.lat,lng:s.lng});if(routeMarkers[idx])mapProvider.bounceMarker(routeMarkers[idx]);if(map.getZoom()<15)map.setZoom(15);
+  updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);updateRouteWalkHighlight(idx);map.panTo({lat:s.lat,lng:s.lng});if(routeMarkers[idx])mapProvider.bounceMarker(routeMarkers[idx]);if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeRoutePlaceCard(){const el=document.getElementById('route-place-overlay');if(el){el.classList.remove('open');el.innerHTML='';}document.body.classList.remove('route-card-mode');}
-function clearRoute(){closeRoutePlaceCard();routeMarkers.forEach(m=>m.setMap(null));routeMarkers=[];if(routePolyline){routePolyline.setMap(null);routePolyline=null;}}
+function clearRoute(){closeRoutePlaceCard();routeWalkLoadToken+=1;clearRouteWalkPolylines();routeMarkers.forEach(m=>m.setMap(null));routeMarkers=[];if(routePolyline){routePolyline.setMap(null);routePolyline=null;}}
 
 
 document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target===document.getElementById('modal-bg'))closeModal();});
