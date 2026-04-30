@@ -686,6 +686,31 @@ function getAmapNavUrl(s,mode='walk'){
   return `https://uri.amap.com/navigation?to=${lng},${lat},${name}&mode=${navMode}&coordinate=wgs84&callnative=1&src=mytourmap`;
 }
 
+function getAmapSchemeUrl(s,mode='walk'){
+  const lng=Number(s.lng).toFixed(6);
+  const lat=Number(s.lat).toFixed(6);
+  const name=encodeURIComponent(s.name||'目的地');
+  const travelType=mode==='drive'?'0':'2';
+  return `amapuri://route/plan/?sourceApplication=mytourmap&dlat=${lat}&dlon=${lng}&dname=${name}&dev=0&t=${travelType}`;
+}
+
+function openAmapNavigation(routeId,idx,mode='walk'){
+  const route=ROUTES.find(r=>r.id===routeId);
+  const stop=route?.stops?.[idx];
+  if(!stop)return;
+  const schemeUrl=getAmapSchemeUrl(stop,mode);
+  const webUrl=getAmapNavUrl(stop,mode);
+  const startedAt=Date.now();
+  const fallbackTimer=setTimeout(()=>{
+    if(document.visibilityState==='visible'&&Date.now()-startedAt<1800){
+      window.location.href=webUrl;
+    }
+  },900);
+  const clearFallback=()=>{clearTimeout(fallbackTimer);document.removeEventListener('visibilitychange',clearFallback);};
+  document.addEventListener('visibilitychange',clearFallback,{once:true});
+  window.location.href=schemeUrl;
+}
+
 function isMobileLayout(){return window.matchMedia('(max-width:720px)').matches;}
 function shouldUseMobileRouteCards(){return isMobileLayout();}
 
@@ -713,7 +738,6 @@ function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
 function buildRouteMapCard(route,s,idx){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' '+coord)}`;
-  const navUrl=getAmapNavUrl(s,'walk');
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   return `
     <div class="route-map-card">
@@ -728,7 +752,7 @@ function buildRouteMapCard(route,s,idx){
         <div class="route-map-note"><span class="route-map-note-title">Notes from My Tour Map</span>${escapeHtml(s.desc||'暂无备注')}</div>
       </div>
       <div class="route-map-actions">
-        <a class="route-map-action primary" href="${navUrl}">高德导航</a>
+        <a class="route-map-action primary" href="#" onclick="event.preventDefault();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a>
         <a class="route-map-action" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
       </div>
     </div>`;
@@ -905,11 +929,10 @@ function handleRouteImgError(imgEl){
 function buildRouteMiniCard(route,s,idx,meta={}){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((meta.googleName||s.name)+' '+coord)}`;
-  const navUrl=getAmapNavUrl(s,'walk');
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   const img=meta.photo||fallbackImgSvg(s.name);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal})`:''}`:(meta.unavailable?'图片暂不可用':'Google Places 搜图');
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="${navUrl}" onclick="event.stopPropagation()">高德导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
 }
 function renderRouteCardStrip(route){
   const el=document.getElementById('route-place-overlay');if(!el||!route)return;
