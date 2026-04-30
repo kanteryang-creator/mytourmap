@@ -14,7 +14,7 @@
   --gold:#c4965a;--gold-bg:rgba(196,150,90,0.12);
   --c-food:#e07b54;--c-cafe:#b8965a;--c-market:#7aab6e;
   --c-heritage:#6a98c8;--c-gallery:#a87ac8;--c-vintage:#c87a8a;
-  --c-scenery:#5aab9e;--c-custom:#e0c060;
+  --c-scenery:#5aab9e;--c-custom:#e0c060;--c-route:#c4965a;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif}
 #app{display:flex;flex-direction:column;height:100%}
@@ -27,13 +27,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .pill .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .pill.active{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 .pill.all-pill.active{border-color:var(--gold);color:var(--gold)}
+.pill.route-pill.active{border-color:var(--c-route);color:var(--c-route)}
 #addBtn{display:flex;align-items:center;gap:6px;margin-left:12px;flex-shrink:0;padding:5px 14px;border-radius:4px;cursor:pointer;background:var(--gold-bg);border:1px solid rgba(196,150,90,0.3);color:var(--gold);font-size:11px;font-weight:500;transition:all .2s;}
 #addBtn:hover{background:rgba(196,150,90,0.2)}
 #addBtn.active-add{background:rgba(196,150,90,0.25);border-color:var(--gold)}
 #main{display:flex;flex:1;overflow:hidden;position:relative}
 #map{flex:1;height:100%}
 #sidebar{width:300px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-#sidebar-header{padding:14px 16px 10px;border-bottom:1px solid var(--border)}
+#sidebar-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
 #sidebar-title{font-family:'Noto Serif TC',serif;font-size:13px;font-weight:300;color:var(--text);margin-bottom:4px}
 #sidebar-count{font-size:10px;color:var(--muted)}
 #card-list{flex:1;overflow-y:auto;padding:8px}
@@ -46,6 +47,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .card-name{font-family:'Noto Serif TC',serif;font-size:12px;line-height:1.4;margin-bottom:3px;color:var(--text)}
 .card-tag{font-size:9px;padding:1px 6px;border-radius:10px}
 .card-desc{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+/* Route panel */
+#route-panel{flex:1;overflow-y:auto;display:none;flex-direction:column}
+#route-panel.visible{display:flex}
+.route-list{padding:8px}
+.route-card{padding:12px;border-radius:4px;cursor:pointer;margin-bottom:6px;border:1px solid var(--border);background:var(--surface2);transition:all .15s;}
+.route-card:hover{border-color:var(--gold)}
+.route-card.active{border-color:var(--gold);background:var(--gold-bg)}
+.route-card-title{font-family:'Noto Serif TC',serif;font-size:13px;color:var(--text);margin-bottom:4px}
+.route-card-meta{font-size:10px;color:var(--muted);display:flex;gap:8px}
+.route-stops{margin-top:12px}
+.route-stop{display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.route-stop:last-child{border-bottom:none}
+.route-stop:hover .route-stop-name{color:var(--gold)}
+.route-stop.active-stop .route-stop-name{color:var(--gold)}
+.route-stop-num{width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--bg);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.route-stop-name{font-size:12px;font-family:'Noto Serif TC',serif;color:var(--text);line-height:1.4}
+.route-stop-desc{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.5}
+.back-btn{display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:11px;color:var(--muted);cursor:pointer;border-bottom:1px solid var(--border);flex-shrink:0;}
+.back-btn:hover{color:var(--text)}
+
+/* Modal */
 #modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px);}
 #modal-bg.open{display:flex}
 #modal{background:var(--surface);border:1px solid var(--border2);border-radius:8px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:modalIn .2s ease;}
@@ -119,6 +142,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div class="pill" data-cat="gallery" onclick="setFilter('gallery')"><span class="dot" style="background:var(--c-gallery)"></span>展览·画廊</div>
       <div class="pill" data-cat="vintage" onclick="setFilter('vintage')"><span class="dot" style="background:var(--c-vintage)"></span>古着·杂货</div>
       <div class="pill" data-cat="scenery" onclick="setFilter('scenery')"><span class="dot" style="background:var(--c-scenery)"></span>城市景观</div>
+      <div class="pill route-pill" data-cat="ROUTE" onclick="setFilter('ROUTE')"><span class="dot" style="background:var(--c-route)"></span>推荐路线</div>
     </div>
     <div id="addBtn" onclick="toggleAdding()">＋ 添加点位</div>
   </div>
@@ -132,6 +156,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       </div>
       <div id="card-list"></div>
       <div id="empty">暂无该类别的标记<br>点击「+ 添加点位」开始记录</div>
+      <!-- Route Panel -->
+      <div id="route-panel">
+        <div id="route-list-view">
+          <div class="route-list" id="route-cards"></div>
+        </div>
+        <div id="route-detail-view" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+          <div class="back-btn" onclick="backToRouteList()">← 返回路线列表</div>
+          <div style="flex:1;overflow-y:auto;padding:8px" id="route-stops-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -163,6 +197,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div id="toast"></div>
 <script>
 const WORKER_URL = 'https://mytourmap.kanteryang.workers.dev';
+
 const CATS = {
   food:     { label:'饮食',         icon:'🍜', color:'#e07b54' },
   cafe:     { label:'咖啡·生活方式', icon:'☕', color:'#b8965a' },
@@ -173,6 +208,29 @@ const CATS = {
   scenery:  { label:'城市景观',     icon:'🌆', color:'#5aab9e' },
   custom:   { label:'自定义',       icon:'✦',  color:'#e0c060' },
 };
+
+// ── 推荐路线数据 ──
+const ROUTES = [
+  {
+    id: 'r1',
+    title: '港岛半山漫步',
+    desc: '香港大学东门 → 喷水池花园',
+    duration: '约 2-3 小时',
+    distance: '约 2.5km',
+    color: '#c4965a',
+    stops: [
+      { name:'香港大学东门', lat:22.2837, lng:114.1362, desc:'港大东门是半山漫步的起点，维多利亚时代红砖建筑，校园内可自由参观' },
+      { name:'旭和道休憩花园', lat:22.2848, lng:114.1398, desc:'隐藏在半山住宅区内的小公园，古树参天，少有游客，是老居民的日常空间' },
+      { name:'罗便臣道', lat:22.2812, lng:114.1438, desc:'殖民时代的半山干道，两侧有战前唐楼与现代豪宅并列，城市肌理变化丰富' },
+      { name:'翡翠园', lat:22.2808, lng:114.1478, desc:'1960-70年代典型香港中产住宅楼群，外廊式设计，立面质感值得细看' },
+      { name:'燕贻大厦', lat:22.2820, lng:114.1510, desc:'1950年代唐楼，外墙有精细的水磨石装饰线脚，是战后香港建筑工艺的标本' },
+      { name:'半山扶梯（中环至半山自动扶梯）', lat:22.2826, lng:114.1534, desc:'全球最长的户外有盖自动扶梯系统，全长800米，连接中环与半山，沿途街景丰富' },
+      { name:'已连拿利天桥', lat:22.2831, lng:114.1558, desc:'中环行人天桥系统的一部分，从高处俯瞰中环街道格局，视角独特' },
+      { name:'香港动植物公园（喷水池）', lat:22.2793, lng:114.1586, desc:'1871年开放，香港最早的公共公园，园内有百年古榕和喷水池，是殖民城市规划的遗存' },
+    ]
+  }
+];
+
 const INIT_PLACES = [
   {id:1,name:'文武廟',cat:'heritage',lat:22.2840,lng:114.1502,desc:'1847年，香港最古老庙宇之一，廟內木雕彩繪工藝精緻'},
   {id:2,name:'荷李活道古董街',cat:'vintage',lat:22.2851,lng:114.1494,desc:'外銷瓷、舊廣州畫、民国木雕小件，跟十三行外銷史直接相關'},
@@ -195,7 +253,10 @@ const INIT_PLACES = [
   {id:19,name:'油麻地天后廟',cat:'heritage',lat:22.3112,lng:114.1715,desc:'1876年，廟宇建築群，清晨8點前香火最靜'},
   {id:20,name:'桂林街布料市場',cat:'market',lat:22.3280,lng:114.1580,desc:'傳統廣繡面料、鈕扣絲帶，對手工藝人有高參考價值'},
 ];
-let places=[],nextId=1,activeFilter='ALL',gmarkers={},activeCard=null,addingMode=false,selectedCat='food',saving=false,map,infoWindow;
+
+let places=[],nextId=1,activeFilter='ALL',gmarkers={},activeCard=null;
+let addingMode=false,selectedCat='food',saving=false,map,infoWindow;
+let activeRouteId=null,routeMarkers=[],routePolyline=null,activeStopIdx=null;
 
 function toast(msg,type=''){
   const el=document.getElementById('toast');
@@ -210,10 +271,7 @@ async function loadPlaces(){
     places=Array.isArray(data)&&data.length>0?data:INIT_PLACES;
     if(!Array.isArray(data)||data.length===0)await savePlaces(false);
     nextId=Math.max(...places.map(p=>p.id),0)+1;
-  }catch(e){
-    places=INIT_PLACES;
-    nextId=Math.max(...places.map(p=>p.id),0)+1;
-  }
+  }catch(e){places=INIT_PLACES;nextId=Math.max(...places.map(p=>p.id),0)+1;}
 }
 
 async function savePlaces(showToast=true){
@@ -224,6 +282,7 @@ async function savePlaces(showToast=true){
   }catch(e){if(showToast)toast('保存失败，请重试','error');}
 }
 
+// ── Map init ──
 async function initMap(){
   await loadPlaces();
   const keyRes=await fetch(WORKER_URL+'/maps-key');
@@ -240,20 +299,19 @@ async function initMap(){
       {elementType:'geometry',stylers:[{color:'#1a1710'}]},
       {elementType:'labels.text.fill',stylers:[{color:'#8a7e72'}]},
       {elementType:'labels.text.stroke',stylers:[{color:'#1a1710'}]},
+      {elementType:'labels.icon',stylers:[{visibility:'off'}]},
       {featureType:'road',elementType:'geometry',stylers:[{color:'#2c2820'}]},
       {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#111009'}]},
       {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a3020'}]},
+      {featureType:'road',elementType:'labels.icon',stylers:[{visibility:'off'}]},
       {featureType:'water',elementType:'geometry',stylers:[{color:'#0e1a20'}]},
       {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#4e6d70'}]},
       {featureType:'poi',elementType:'geometry',stylers:[{color:'#1e1c14'}]},
+      {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
       {featureType:'transit',elementType:'geometry',stylers:[{color:'#2f3948'}]},
+      {featureType:'transit',elementType:'labels',stylers:[{visibility:'off'}]},
       {featureType:'administrative',elementType:'geometry',stylers:[{color:'#3a3020'}]},
       {featureType:'landscape',elementType:'geometry',stylers:[{color:'#1a1810'}]},
-      {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
-      {featureType:'transit',elementType:'labels.icon',stylers:[{visibility:'off'}]},
-      {featureType:'transit',elementType:'labels.text.fill',stylers:[{color:'#3a3830'}]},
-      {featureType:'road',elementType:'labels.icon',stylers:[{visibility:'off'}]},
-      {elementType:'labels.icon',stylers:[{visibility:'off'}]},
     ],
     disableDefaultUI:false,zoomControl:true,streetViewControl:false,mapTypeControl:false,fullscreenControl:false,
   });
@@ -268,31 +326,42 @@ async function initMap(){
   render();
 }
 
-function makeMarkerIcon(cat){
-  const c=CATS[cat]||CATS.custom;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${c.color}" opacity="0.95"/><circle cx="16" cy="16" r="8" fill="rgba(0,0,0,0.2)"/><text x="16" y="20" text-anchor="middle" font-size="11">${c.icon}</text></svg>`;
+function makeMarkerIcon(cat,color){
+  const c=color||((CATS[cat]||CATS.custom).color);
+  const icon=CATS[cat]?CATS[cat].icon:'✦';
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${c}" opacity="0.95"/><circle cx="16" cy="16" r="8" fill="rgba(0,0,0,0.2)"/><text x="16" y="20" text-anchor="middle" font-size="11">${icon}</text></svg>`;
   return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(28,34),anchor:new google.maps.Point(14,34)};
+}
+
+function makeRouteStopIcon(num,color){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${color}" opacity="0.95"/><circle cx="16" cy="16" r="9" fill="rgba(0,0,0,0.3)"/><text x="16" y="20.5" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="sans-serif">${num}</text></svg>`;
+  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(30,36),anchor:new google.maps.Point(15,36)};
 }
 
 function renderMarkers(){
   Object.values(gmarkers).forEach(m=>m.setMap(null));
   gmarkers={};
+  if(activeFilter==='ROUTE')return;
   places.filter(p=>activeFilter==='ALL'||p.cat===activeFilter).forEach(p=>{
-    const marker=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
-    marker.addListener('click',()=>{
+    const m=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
+    m.addListener('click',()=>{
       const c=CATS[p.cat]||CATS.custom;
       infoWindow.setContent(`<div class="popup-inner"><div class="popup-cat" style="color:${c.color}">${c.icon} ${c.label}</div><div class="popup-name">${p.name}</div><div class="popup-desc">${p.desc||''}</div></div><div class="popup-actions"><div class="popup-btn" onclick="focusCard(${p.id})">列表中查看</div><div class="popup-btn del" onclick="deletePlace(${p.id})">删除</div></div>`);
-      infoWindow.open(map,marker);
-      focusCard(p.id,false);
+      infoWindow.open(map,m);focusCard(p.id,false);
     });
-    gmarkers[p.id]=marker;
+    gmarkers[p.id]=m;
   });
 }
 
 function renderCards(){
+  if(activeFilter==='ROUTE'){renderRoutePanel();return;}
   const visible=places.filter(p=>activeFilter==='ALL'||p.cat===activeFilter);
   const list=document.getElementById('card-list');
   const empty=document.getElementById('empty');
+  document.getElementById('route-panel').classList.remove('visible');
+  document.getElementById('card-list').style.display='';
+  document.getElementById('empty').style.display='';
+  document.getElementById('sidebar-title').textContent='地图标记';
   document.getElementById('sidebar-count').textContent=`${visible.length} 个地点`;
   if(visible.length===0){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
@@ -302,12 +371,115 @@ function renderCards(){
   }).join('');
 }
 
+// ── Route Panel ──
+function renderRoutePanel(){
+  document.getElementById('card-list').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('route-panel').classList.add('visible');
+  document.getElementById('sidebar-title').textContent='推荐路线';
+  document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
+  if(!activeRouteId){
+    document.getElementById('route-list-view').style.display='';
+    document.getElementById('route-detail-view').style.display='none';
+    document.getElementById('route-cards').innerHTML=ROUTES.map(r=>`
+      <div class="route-card ${activeRouteId===r.id?'active':''}" onclick="selectRoute('${r.id}')">
+        <div class="route-card-title">${r.title}</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${r.desc}</div>
+        <div class="route-card-meta">
+          <span>🕐 ${r.duration}</span>
+          <span>📍 ${r.distance}</span>
+          <span>💠 ${r.stops.length} 个节点</span>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function selectRoute(id){
+  activeRouteId=id;
+  const route=ROUTES.find(r=>r.id===id);
+  if(!route)return;
+  // clear existing route
+  clearRoute();
+  // draw polyline
+  const path=route.stops.map(s=>({lat:s.lat,lng:s.lng}));
+  routePolyline=new google.maps.Polyline({
+    path,map,
+    strokeColor:route.color,
+    strokeOpacity:0.8,
+    strokeWeight:3,
+    icons:[{icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:3,strokeColor:route.color},offset:'100%',repeat:'80px'}]
+  });
+  // place stop markers
+  route.stops.forEach((s,i)=>{
+    const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color),title:s.name,zIndex:10});
+    m.addListener('click',()=>showRouteStop(id,i));
+    routeMarkers.push(m);
+  });
+  // fit bounds
+  const bounds=new google.maps.LatLngBounds();
+  route.stops.forEach(s=>bounds.extend({lat:s.lat,lng:s.lng}));
+  map.fitBounds(bounds,{top:60,bottom:60,left:60,right:320});
+  // show detail
+  showRouteDetail(id);
+}
+
+function showRouteDetail(id){
+  const route=ROUTES.find(r=>r.id===id);
+  document.getElementById('route-list-view').style.display='none';
+  document.getElementById('route-detail-view').style.display='flex';
+  document.getElementById('sidebar-title').textContent=route.title;
+  document.getElementById('sidebar-count').textContent=`${route.stops.length} 个节点`;
+  document.getElementById('route-stops-list').innerHTML=route.stops.map((s,i)=>`
+    <div class="route-stop ${activeStopIdx===i?'active-stop':''}" id="rstop-${i}" onclick="showRouteStop('${id}',${i})">
+      <div class="route-stop-num" style="background:${route.color}">${i+1}</div>
+      <div>
+        <div class="route-stop-name">${s.name}</div>
+        <div class="route-stop-desc">${s.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+function showRouteStop(routeId,idx){
+  activeStopIdx=idx;
+  const route=ROUTES.find(r=>r.id===routeId);
+  const s=route.stops[idx];
+  infoWindow.setContent(`
+    <div class="popup-inner">
+      <div class="popup-cat" style="color:${route.color}">📍 推荐路线节点 ${idx+1}/${route.stops.length}</div>
+      <div class="popup-name">${s.name}</div>
+      <div class="popup-desc">${s.desc}</div>
+    </div>`);
+  infoWindow.open(map,routeMarkers[idx]);
+  map.panTo({lat:s.lat,lng:s.lng});
+  // highlight stop in list
+  document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));
+  document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function backToRouteList(){
+  clearRoute();
+  activeRouteId=null;activeStopIdx=null;
+  document.getElementById('route-list-view').style.display='';
+  document.getElementById('route-detail-view').style.display='none';
+  document.getElementById('sidebar-title').textContent='推荐路线';
+  document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
+  infoWindow.close();
+}
+
+function clearRoute(){
+  routeMarkers.forEach(m=>m.setMap(null));
+  routeMarkers=[];
+  if(routePolyline){routePolyline.setMap(null);routePolyline=null;}
+}
+
 function render(){renderMarkers();renderCards();}
 
 function setFilter(cat){
   activeFilter=cat;
   document.querySelectorAll('.pill').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
-  activeCard=null;infoWindow?.close();render();
+  activeCard=null;infoWindow?.close();
+  if(cat!=='ROUTE'){clearRoute();activeRouteId=null;}
+  render();
 }
 
 function focusCard(id,panMap=true){
@@ -339,7 +511,6 @@ function openModal(lat,lng){
   selectedCat='food';buildCatGrid();
   setTimeout(()=>document.getElementById('f-name').focus(),100);
 }
-
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');exitAddingMode();}
 
 async function savePoint(){
@@ -350,8 +521,7 @@ async function savePoint(){
   if(!name){document.getElementById('f-name').focus();toast('请填写地点名称');return;}
   if(isNaN(lat)||isNaN(lng)){toast('请先在地图上点击选点');return;}
   saving=true;
-  const btn=document.getElementById('saveBtn');
-  btn.disabled=true;btn.textContent='保存中…';
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='保存中…';
   const p={id:nextId++,name,cat:selectedCat,lat,lng,desc:document.getElementById('f-desc').value.trim()};
   places.push(p);closeModal();
   if(activeFilter!=='ALL'&&activeFilter!==p.cat)setFilter(p.cat);else render();
@@ -368,7 +538,6 @@ function toggleAdding(){
   document.getElementById('addBtn').textContent='× 取消选点';
   if(map)map.setOptions({draggableCursor:'crosshair'});
 }
-
 function exitAddingMode(){
   addingMode=false;
   document.getElementById('click-hint').classList.remove('visible');
@@ -380,11 +549,7 @@ function exitAddingMode(){
 document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target===document.getElementById('modal-bg'))closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
-initMap().catch(e=>{
-  console.error(e);
-  toast('地图加载失败','error');
-  document.getElementById('loading').classList.add('hidden');
-});
+initMap().catch(e=>{console.error(e);toast('地图加载失败','error');document.getElementById('loading').classList.add('hidden');});
 </script>
 </body>
 </html>
