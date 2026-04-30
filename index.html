@@ -1096,16 +1096,6 @@ function getMapPadding(){
 
 function setSidebarCollapsed(v){
   const mapProvider=getMapProvider();
-  if(shouldUseMobileRouteCards()&&activeFilter==='ROUTE'&&activeRouteId){
-    sidebarCollapsed=true;
-    document.body.classList.add('sidebar-collapsed');
-    const floatBtn=document.getElementById('sidebar-float-toggle');
-    const headBtn=document.getElementById('sidebar-head-toggle');
-    if(floatBtn)floatBtn.textContent='展开侧栏';
-    if(headBtn)headBtn.textContent='展开';
-    setTimeout(()=>{ if(map)mapProvider.triggerResize(map); },300);
-    return;
-  }
   sidebarCollapsed=!!v;
   document.body.classList.toggle('sidebar-collapsed',sidebarCollapsed);
   const floatBtn=document.getElementById('sidebar-float-toggle');
