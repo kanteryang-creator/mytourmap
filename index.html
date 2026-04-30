@@ -262,6 +262,8 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 .route-review-stars{font-size:12px;font-weight:700;color:#111;white-space:nowrap;}
 .route-review-text{font-size:13px;line-height:1.6;color:#3c4043;}
 .route-reviews-empty{padding:18px 2px 8px;font-size:13px;line-height:1.6;color:#6f6f73;}
+.route-reviews-foot{padding:0 16px 18px;background:#fff;border-top:1px solid #ececf0;}
+.route-reviews-more{display:flex;align-items:center;justify-content:center;width:100%;border:1px solid #dadce0;border-radius:999px;padding:11px 14px;font-size:13px;font-weight:700;color:#111;text-decoration:none;background:#f5f5f5;}
 
 @media (max-width:720px){
   html,body{overflow:hidden;}
@@ -297,6 +299,7 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
   .route-reviews-head{padding:12px 16px 10px;}
   .route-reviews-title{font-size:17px;}
   .route-reviews-list{padding:8px 14px 16px;}
+  .route-reviews-foot{padding:0 14px 16px;}
 }
 
 @media (max-width:720px) and (orientation:landscape){
@@ -1354,7 +1357,8 @@ function renderRouteReviewsModal(stopName,meta={}){
   const ratingLine=meta.rating?`${meta.rating} ★${meta.ratingTotal?` · ${meta.ratingTotal} 条 ${source.reviewLabel}`:''}`:source.reviewLabel;
   const reviews=Array.isArray(meta.reviews)?meta.reviews:[];
   const reviewHtml=reviews.length?reviews.map((review,idx)=>`<div class="route-review-item"><div class="route-review-top"><div><div class="route-review-author">${escapeHtml(review.author||`用户 ${idx+1}`)}</div><div class="route-review-time">${escapeHtml(review.ago||source.reviewLabel)}</div></div><div class="route-review-stars">${review.rating?`${escapeHtml(String(review.rating))} ★`:''}</div></div><div class="route-review-text">${escapeHtml(review.text||'')}</div></div>`).join(''):`<div class="route-reviews-empty">${escapeHtml(source.reviewEmptyText)}</div>`;
-  return `<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stopName)}</div><div class="route-reviews-sub">${escapeHtml(ratingLine)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list">${reviewHtml}</div></div>`;
+  const moreLink=meta.reviewsUri?`<div class="route-reviews-foot"><a class="route-reviews-more" href="${meta.reviewsUri}" target="_blank" rel="noopener">查看更多评价</a></div>`:'';
+  return `<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stopName)}</div><div class="route-reviews-sub">${escapeHtml(ratingLine)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list">${reviewHtml}</div>${moreLink}</div>`;
 }
 async function openRouteReviews(routeId,idx){
   const source=getDataSource();
