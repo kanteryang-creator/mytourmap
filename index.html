@@ -121,6 +121,175 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .popup-btn:hover{background:var(--surface2);color:var(--text)}
 .popup-btn.del{color:#c87a7a}
 .popup-btn.del:hover{border-color:#c87a7a}
+
+
+/* ===== Mobile / collapsible sidebar V2 ===== */
+#main{position:relative;}
+#sidebar{
+  position:absolute;
+  right:0;
+  top:0;
+  bottom:0;
+  z-index:700;
+  box-shadow:-18px 0 40px rgba(0,0,0,.24);
+  transition:transform .28s ease, box-shadow .28s ease;
+}
+body.sidebar-collapsed #sidebar{transform:translateX(calc(100% + 12px));}
+#sidebar-float-toggle{
+  position:absolute;
+  right:312px;
+  top:14px;
+  z-index:850;
+  border:1px solid rgba(196,150,90,.45);
+  background:rgba(26,23,16,.88);
+  color:var(--gold);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:11px;
+  cursor:pointer;
+  box-shadow:0 10px 28px rgba(0,0,0,.35);
+  font-family:'Noto Sans TC',sans-serif;
+}
+body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
+#sidebar-header{position:relative;}
+#sidebar-head-toggle{
+  position:absolute;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--gold);
+  border-radius:999px;
+  padding:5px 9px;
+  font-size:11px;
+  cursor:pointer;
+  font-family:'Noto Sans TC',sans-serif;
+}
+
+/* Google Maps-like route place overlay */
+#route-place-overlay{
+  position:absolute;
+  z-index:900;
+  left:18px;
+  bottom:18px;
+  width:min(360px, calc(100vw - 36px));
+  display:none;
+  pointer-events:auto;
+}
+#route-place-overlay.open{display:block;}
+.route-map-card{
+  background:#fff;
+  color:#202124;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 16px 48px rgba(0,0,0,.35);
+  font-family:Arial,'Noto Sans TC',sans-serif;
+}
+.route-map-cover{
+  height:132px;
+  position:relative;
+  background:linear-gradient(135deg,#d8c09b 0%,#8fa17a 48%,#55706b 100%);
+}
+.route-map-cover::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.04),rgba(0,0,0,.42));}
+.route-map-close{
+  position:absolute;
+  right:10px;
+  top:10px;
+  z-index:2;
+  width:34px;
+  height:34px;
+  border:none;
+  border-radius:50%;
+  background:rgba(255,255,255,.9);
+  color:#333;
+  font-size:22px;
+  cursor:pointer;
+  line-height:34px;
+}
+.route-map-badge{
+  position:absolute;
+  left:14px;
+  bottom:12px;
+  z-index:2;
+  background:rgba(255,255,255,.93);
+  border-radius:999px;
+  padding:6px 10px;
+  color:#3c4043;
+  font-size:12px;
+  font-weight:700;
+}
+.route-map-body{padding:15px 16px 13px;}
+.route-map-kicker{font-size:12px;color:#5f6368;margin-bottom:5px;}
+.route-map-name{font-size:21px;line-height:1.25;font-weight:700;color:#202124;margin-bottom:8px;}
+.route-map-meta{font-size:13px;color:#5f6368;line-height:1.5;margin-bottom:10px;}
+.route-map-note{font-size:13px;line-height:1.58;color:#3c4043;background:#f6f6f6;border-radius:12px;padding:10px 11px;}
+.route-map-note-title{display:block;color:#5f6368;font-size:12px;margin-bottom:4px;}
+.route-map-actions{display:flex;gap:8px;padding:10px 12px 13px;border-top:1px solid #ececec;background:#fff;}
+.route-map-action{
+  flex:1;
+  text-align:center;
+  border:1px solid #dadce0;
+  border-radius:999px;
+  padding:8px 8px;
+  font-size:13px;
+  color:#1967d2;
+  text-decoration:none;
+  background:#fff;
+  cursor:pointer;
+  font-family:Arial,'Noto Sans TC',sans-serif;
+}
+.route-map-action.primary{background:#1a73e8;color:#fff;border-color:#1a73e8;}
+
+@media (max-width:720px){
+  html,body{overflow:hidden;}
+  #topbar{height:auto;min-height:58px;padding:9px 10px;gap:8px;align-items:flex-start;}
+  #logo{font-size:13px;margin-right:4px;min-width:132px;line-height:1.2;}
+  #logo span{font-size:9px;}
+  #filters{padding:0;gap:6px;max-height:76px;align-content:flex-start;overflow-x:auto;}
+  .pill{font-size:11px;padding:5px 10px;}
+  #addBtn{padding:6px 12px;font-size:11px;margin-left:4px;}
+  #sidebar{
+    left:0;
+    right:0;
+    top:auto;
+    bottom:0;
+    width:100%;
+    height:46vh;
+    border-left:none;
+    border-top:1px solid var(--border2);
+    border-radius:18px 18px 0 0;
+    box-shadow:0 -18px 46px rgba(0,0,0,.42);
+  }
+  body.sidebar-collapsed #sidebar{transform:translateY(calc(100% - 48px));}
+  #sidebar-header{padding:17px 92px 10px 16px;min-height:48px;}
+  #sidebar-header::before{content:'';position:absolute;top:7px;left:50%;width:44px;height:4px;border-radius:99px;background:rgba(255,255,255,.22);transform:translateX(-50%);}
+  #sidebar-head-toggle{right:14px;top:26px;padding:6px 10px;font-size:11px;}
+  #sidebar-float-toggle{right:12px;top:auto;bottom:calc(46vh + 12px);padding:8px 12px;font-size:11px;}
+  body.sidebar-collapsed #sidebar-float-toggle{bottom:14px;right:12px;}
+  #route-place-overlay{left:12px;right:12px;bottom:70px;width:auto;}
+  .route-map-cover{height:104px;}
+  .route-map-name{font-size:19px;}
+  .route-map-actions{padding-bottom:12px;}
+}
+
+@media (max-width:720px) and (orientation:landscape){
+  #topbar{min-height:48px;padding:6px 10px;}
+  #logo{font-size:12px;min-width:120px;}
+  #filters{max-height:44px;flex-wrap:nowrap;}
+  #sidebar{height:58vh;}
+  body.sidebar-collapsed #sidebar{transform:translateY(calc(100% - 44px));}
+  #sidebar-float-toggle{bottom:calc(58vh + 10px);}
+  body.sidebar-collapsed #sidebar-float-toggle{bottom:12px;}
+  #route-place-overlay{bottom:58px;width:min(330px, calc(100vw - 24px));}
+  .route-map-cover{height:76px;}
+  .route-map-body{padding:11px 13px 10px;}
+  .route-map-name{font-size:17px;}
+  .route-map-note{font-size:12px;max-height:68px;overflow:auto;}
+}
+
 </style>
 </head>
 <body>
@@ -149,10 +318,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div id="main">
     <div id="map"></div>
     <div id="click-hint">点击地图上的位置来放置新标记</div>
+    <button id="sidebar-float-toggle" onclick="toggleSidebar()">收起列表</button>
+    <div id="route-place-overlay"></div>
     <div id="sidebar">
       <div id="sidebar-header">
         <div id="sidebar-title">地图标记</div>
         <div id="sidebar-count"></div>
+        <button id="sidebar-head-toggle" onclick="toggleSidebar()">收起</button>
       </div>
       <div id="card-list"></div>
       <div id="empty">暂无该类别的标记<br>点击「+ 添加点位」开始记录</div>
@@ -257,6 +429,7 @@ const INIT_PLACES = [
 let places=[],nextId=1,activeFilter='ALL',gmarkers={},activeCard=null;
 let addingMode=false,selectedCat='food',saving=false,map,infoWindow;
 let activeRouteId=null,routeMarkers=[],routePolyline=null,activeStopIdx=null;
+let sidebarCollapsed=false;
 
 function toast(msg,type=''){
   const el=document.getElementById('toast');
@@ -324,7 +497,9 @@ async function initMap(){
   });
   document.getElementById('loading').classList.add('hidden');
   render();
+  setSidebarCollapsed(false);
 }
+
 
 function makeMarkerIcon(cat,color){
   const c=color||((CATS[cat]||CATS.custom).color);
@@ -418,7 +593,7 @@ function selectRoute(id){
   // fit bounds
   const bounds=new google.maps.LatLngBounds();
   route.stops.forEach(s=>bounds.extend({lat:s.lat,lng:s.lng}));
-  map.fitBounds(bounds,{top:60,bottom:60,left:60,right:320});
+  map.fitBounds(bounds,getMapPadding());
   // show detail
   showRouteDetail(id);
 }
@@ -439,19 +614,81 @@ function showRouteDetail(id){
     </div>`).join('');
 }
 
+function escapeHtml(str=''){
+  return String(str).replace(/[&<>'\"]/g,ch=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'
+  }[ch]));
+}
+
+function isMobileLayout(){return window.matchMedia('(max-width:720px)').matches;}
+
+function getMapPadding(){
+  if(isMobileLayout()){
+    return sidebarCollapsed?{top:70,bottom:86,left:34,right:34}:{top:70,bottom:280,left:34,right:34};
+  }
+  return sidebarCollapsed?{top:60,bottom:60,left:60,right:60}:{top:60,bottom:60,left:60,right:340};
+}
+
+function setSidebarCollapsed(v){
+  sidebarCollapsed=!!v;
+  document.body.classList.toggle('sidebar-collapsed',sidebarCollapsed);
+  const floatBtn=document.getElementById('sidebar-float-toggle');
+  const headBtn=document.getElementById('sidebar-head-toggle');
+  if(floatBtn)floatBtn.textContent=sidebarCollapsed?'打开列表':'收起列表';
+  if(headBtn)headBtn.textContent=sidebarCollapsed?'打开':'收起';
+  setTimeout(()=>{ if(map)google.maps.event.trigger(map,'resize'); },300);
+}
+function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
+
+function buildRouteMapCard(route,s,idx){
+  const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
+  const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' '+coord)}`;
+  const navUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coord)}&travelmode=walking`;
+  const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
+  return `
+    <div class="route-map-card">
+      <div class="route-map-cover">
+        <button class="route-map-close" onclick="closeRoutePlaceCard()">×</button>
+        <div class="route-map-badge">${label}</div>
+      </div>
+      <div class="route-map-body">
+        <div class="route-map-kicker">${escapeHtml(route.title)} · ${idx+1}/${route.stops.length}</div>
+        <div class="route-map-name">${escapeHtml(s.name)}</div>
+        <div class="route-map-meta">📍 ${coord}<br>步行路线节点</div>
+        <div class="route-map-note"><span class="route-map-note-title">Notes from My Tour Map</span>${escapeHtml(s.desc||'暂无备注')}</div>
+      </div>
+      <div class="route-map-actions">
+        <a class="route-map-action primary" href="${navUrl}" target="_blank" rel="noopener">打开导航</a>
+        <a class="route-map-action" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
+      </div>
+    </div>`;
+}
+
+function openRoutePlaceCard(route,s,idx){
+  const el=document.getElementById('route-place-overlay');
+  if(!el)return;
+  el.innerHTML=buildRouteMapCard(route,s,idx);
+  el.classList.add('open');
+}
+function closeRoutePlaceCard(){
+  const el=document.getElementById('route-place-overlay');
+  if(el){el.classList.remove('open');el.innerHTML='';}
+}
+
 function showRouteStop(routeId,idx){
   activeStopIdx=idx;
+  activeRouteId=routeId;
   const route=ROUTES.find(r=>r.id===routeId);
+  if(!route||!route.stops[idx])return;
   const s=route.stops[idx];
-  infoWindow.setContent(`
-    <div class="popup-inner">
-      <div class="popup-cat" style="color:${route.color}">📍 推荐路线节点 ${idx+1}/${route.stops.length}</div>
-      <div class="popup-name">${s.name}</div>
-      <div class="popup-desc">${s.desc}</div>
-    </div>`);
-  infoWindow.open(map,routeMarkers[idx]);
+  if(isMobileLayout())setSidebarCollapsed(true);
+  openRoutePlaceCard(route,s,idx);
+  if(routeMarkers[idx]){
+    routeMarkers[idx].setAnimation(google.maps.Animation.BOUNCE);
+    setTimeout(()=>routeMarkers[idx]?.setAnimation(null),650);
+  }
   map.panTo({lat:s.lat,lng:s.lng});
-  // highlight stop in list
+  if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));
   document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -467,6 +704,7 @@ function backToRouteList(){
 }
 
 function clearRoute(){
+  closeRoutePlaceCard();
   routeMarkers.forEach(m=>m.setMap(null));
   routeMarkers=[];
   if(routePolyline){routePolyline.setMap(null);routePolyline=null;}
@@ -477,7 +715,7 @@ function render(){renderMarkers();renderCards();}
 function setFilter(cat){
   activeFilter=cat;
   document.querySelectorAll('.pill').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
-  activeCard=null;infoWindow?.close();
+  activeCard=null;infoWindow?.close();closeRoutePlaceCard();
   if(cat!=='ROUTE'){clearRoute();activeRouteId=null;}
   render();
 }
@@ -545,6 +783,19 @@ function exitAddingMode(){
   document.getElementById('addBtn').textContent='＋ 添加点位';
   if(map)map.setOptions({draggableCursor:null});
 }
+
+
+
+window.addEventListener('resize',()=>{
+  if(activeRouteId){
+    const route=ROUTES.find(r=>r.id===activeRouteId);
+    if(route&&map){
+      const bounds=new google.maps.LatLngBounds();
+      route.stops.forEach(stop=>bounds.extend({lat:stop.lat,lng:stop.lng}));
+      map.fitBounds(bounds,getMapPadding());
+    }
+  }
+});
 
 document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target===document.getElementById('modal-bg'))closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
