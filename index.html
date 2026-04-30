@@ -26,7 +26,6 @@ html,body{height:100%;overflow:hidden;background:radial-gradient(circle at top,#
 .pill{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);color:rgba(255,255,255,.72);transition:all .18s ease;flex-shrink:0;box-shadow:none;}
 .pill .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .pill.active{background:#fff;color:#111;border-color:#fff;box-shadow:none}
-.pill.all-pill.active,.pill.route-pill.active{color:#fff}
 #addBtn{display:flex;align-items:center;gap:6px;margin-left:12px;flex-shrink:0;padding:10px 15px;border-radius:999px;cursor:pointer;background:#fff;border:1px solid #fff;color:#111;font-size:12px;font-weight:700;transition:all .18s ease;box-shadow:var(--shadow);}
 #addBtn:hover{transform:translateY(-1px)}
 #addBtn.active-add{background:#2a2a2d;border-color:#2a2a2d;color:#fff}
@@ -314,7 +313,13 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 }
 @media (max-width:720px){
   body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:64px;}
-  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(46vh + 12px);}
+  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(46vh + 12px);opacity:0;transform:translateY(18px);pointer-events:none;}
+  body.route-card-mode #sidebar{height:52vh;}
+  body.route-card-mode.sidebar-collapsed #sidebar{transform:translateY(calc(100% - 72px));}
+  body.route-card-mode:not(.sidebar-collapsed) #sidebar-float-toggle{opacity:0;pointer-events:none;transform:translateY(12px);}
+  body.route-card-mode #sidebar-header{padding-top:20px;padding-bottom:12px;}
+  body.route-card-mode #route-detail-view{background:rgba(255,255,255,.98);}
+  body.route-card-mode .back-btn{position:sticky;top:0;z-index:2;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
   .route-card-track{padding-left:14px;padding-right:14px;gap:10px;}
   .route-mini-card{flex-basis:calc(100vw - 54px);min-height:90px;border-radius:16px;padding:10px 11px;}
   .route-mini-img{width:88px;height:68px;border-radius:12px;}
@@ -326,7 +331,8 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 }
 @media (max-width:720px) and (orientation:landscape){
   body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:52px;}
-  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(58vh + 8px);}
+  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(58vh + 8px);opacity:0;transform:translateY(14px);pointer-events:none;}
+  body.route-card-mode #sidebar{height:60vh;}
   .route-mini-card{flex-basis:min(408px, calc(100vw - 68px));min-height:76px;padding:8px 10px;}
   .route-mini-img{width:78px;height:56px;}
   .route-mini-name{font-size:15px;}
@@ -672,6 +678,14 @@ function escapeHtml(str=''){
   }[ch]));
 }
 
+function getAmapNavUrl(s,mode='walk'){
+  const lng=Number(s.lng).toFixed(6);
+  const lat=Number(s.lat).toFixed(6);
+  const name=encodeURIComponent(s.name||'目的地');
+  const navMode=mode==='drive'?'car':'walk';
+  return `https://uri.amap.com/navigation?to=${lng},${lat},${name}&mode=${navMode}&coordinate=wgs84&callnative=1&src=mytourmap`;
+}
+
 function isMobileLayout(){return window.matchMedia('(max-width:720px)').matches;}
 function shouldUseMobileRouteCards(){return isMobileLayout();}
 
@@ -699,7 +713,7 @@ function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
 function buildRouteMapCard(route,s,idx){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' '+coord)}`;
-  const navUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coord)}&travelmode=walking`;
+  const navUrl=getAmapNavUrl(s,'walk');
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   return `
     <div class="route-map-card">
@@ -714,7 +728,7 @@ function buildRouteMapCard(route,s,idx){
         <div class="route-map-note"><span class="route-map-note-title">Notes from My Tour Map</span>${escapeHtml(s.desc||'暂无备注')}</div>
       </div>
       <div class="route-map-actions">
-        <a class="route-map-action primary" href="${navUrl}" target="_blank" rel="noopener">打开导航</a>
+        <a class="route-map-action primary" href="${navUrl}">高德导航</a>
         <a class="route-map-action" href="${mapsUrl}" target="_blank" rel="noopener">Google Maps</a>
       </div>
     </div>`;
@@ -891,11 +905,11 @@ function handleRouteImgError(imgEl){
 function buildRouteMiniCard(route,s,idx,meta={}){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((meta.googleName||s.name)+' '+coord)}`;
-  const navUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coord)}&travelmode=walking`;
+  const navUrl=getAmapNavUrl(s,'walk');
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   const img=meta.photo||fallbackImgSvg(s.name);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal})`:''}`:(meta.unavailable?'图片暂不可用':'Google Places 搜图');
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="${navUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="${navUrl}" onclick="event.stopPropagation()">高德导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
 }
 function renderRouteCardStrip(route){
   const el=document.getElementById('route-place-overlay');if(!el||!route)return;
