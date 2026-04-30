@@ -1093,7 +1093,8 @@ function clearRoute(){closeRoutePlaceCard();routeMarkers.forEach(m=>m.setMap(nul
 
 
 document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target===document.getElementById('modal-bg'))closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.getElementById('route-reviews-modal').addEventListener('click',e=>{if(e.target===document.getElementById('route-reviews-modal'))closeRouteReviews();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeRouteReviews();}});
 
 initMap().catch(e=>{console.error(e);toast('地图加载失败','error');document.getElementById('loading').classList.add('hidden');});
 </script>
