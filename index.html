@@ -308,8 +308,30 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 .route-mini-actions{display:flex;gap:7px;margin-top:8px;}
 .route-mini-action{font-size:12px;color:#1967d2;text-decoration:none;border:1px solid #dadce0;border-radius:999px;padding:5px 9px;background:#fff;white-space:nowrap;}
 .route-mini-action.primary{background:#1a73e8;color:#fff;border-color:#1a73e8;}
-@media (max-width:720px){body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:64px;}body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(46vh + 12px);}.route-card-track{padding-left:16px;padding-right:16px;gap:10px;}.route-mini-card{flex-basis:calc(100vw - 68px);min-height:96px;border-radius:16px;padding:10px;}.route-mini-img{width:92px;height:74px;border-radius:12px;}.route-mini-name{font-size:18px;}.route-mini-meta{font-size:13px;}.route-mini-note{display:none;}.route-mini-actions{margin-top:6px;}}
-@media (max-width:720px) and (orientation:landscape){body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:54px;}.route-mini-card{flex-basis:min(430px, calc(100vw - 82px));min-height:82px;padding:9px;}.route-mini-img{width:82px;height:62px;}.route-mini-name{font-size:16px;}.route-mini-kicker,.route-mini-note{display:none;}.route-mini-actions{display:none;}}
+@media (min-width:721px){
+  body.route-card-mode #route-place-overlay{display:none!important;}
+}
+@media (max-width:720px){
+  body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:64px;}
+  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(46vh + 12px);}
+  .route-card-track{padding-left:14px;padding-right:14px;gap:10px;}
+  .route-mini-card{flex-basis:calc(100vw - 54px);min-height:90px;border-radius:16px;padding:10px 11px;}
+  .route-mini-img{width:88px;height:68px;border-radius:12px;}
+  .route-mini-name{font-size:17px;}
+  .route-mini-meta{font-size:12px;}
+  .route-mini-note{display:none;}
+  .route-mini-actions{margin-top:6px;}
+  .route-mini-action{font-size:11px;padding:5px 8px;}
+}
+@media (max-width:720px) and (orientation:landscape){
+  body.route-card-mode.sidebar-collapsed #route-place-overlay{bottom:52px;}
+  body.route-card-mode:not(.sidebar-collapsed) #route-place-overlay{bottom:calc(58vh + 8px);}
+  .route-mini-card{flex-basis:min(408px, calc(100vw - 68px));min-height:76px;padding:8px 10px;}
+  .route-mini-img{width:78px;height:56px;}
+  .route-mini-name{font-size:15px;}
+  .route-mini-kicker,.route-mini-note{display:none;}
+  .route-mini-actions{display:none;}
+}
 
 </style>
 </head>
@@ -645,9 +667,13 @@ function escapeHtml(str=''){
 }
 
 function isMobileLayout(){return window.matchMedia('(max-width:720px)').matches;}
+function shouldUseMobileRouteCards(){return isMobileLayout();}
 
 function getMapPadding(){
   if(isMobileLayout()){
+    if(activeFilter==='ROUTE'&&activeRouteId){
+      return sidebarCollapsed?{top:70,bottom:132,left:28,right:28}:{top:70,bottom:298,left:28,right:28};
+    }
     return sidebarCollapsed?{top:70,bottom:86,left:34,right:34}:{top:70,bottom:280,left:34,right:34};
   }
   return sidebarCollapsed?{top:60,bottom:60,left:60,right:60}:{top:60,bottom:60,left:60,right:340};
@@ -658,8 +684,8 @@ function setSidebarCollapsed(v){
   document.body.classList.toggle('sidebar-collapsed',sidebarCollapsed);
   const floatBtn=document.getElementById('sidebar-float-toggle');
   const headBtn=document.getElementById('sidebar-head-toggle');
-  if(floatBtn)floatBtn.textContent=sidebarCollapsed?'打开列表':'收起列表';
-  if(headBtn)headBtn.textContent=sidebarCollapsed?'打开':'收起';
+  if(floatBtn)floatBtn.textContent=sidebarCollapsed?'展开侧栏':'收起侧栏';
+  if(headBtn)headBtn.textContent=sidebarCollapsed?'展开':'收起';
   setTimeout(()=>{ if(map)google.maps.event.trigger(map,'resize'); },300);
 }
 function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
@@ -814,6 +840,7 @@ window.addEventListener('resize',()=>{
   if(activeRouteId){
     const route=ROUTES.find(r=>r.id===activeRouteId);
     if(route&&map){
+      if(shouldUseMobileRouteCards())renderRouteCardStrip(route);else closeRoutePlaceCard();
       const bounds=new google.maps.LatLngBounds();
       route.stops.forEach(stop=>bounds.extend({lat:stop.lat,lng:stop.lng}));
       map.fitBounds(bounds,getMapPadding());
@@ -839,7 +866,10 @@ async function fetchPlaceMetaForStop(s){
   if(!placeService||!google.maps.places){return null;}
   return new Promise(resolve=>{
     placeService.findPlaceFromQuery({query:`${s.name} 香港`,fields:['place_id','name','photos','rating','user_ratings_total','formatted_address','types'],locationBias:new google.maps.LatLng(s.lat,s.lng)},(results,status)=>{
-      if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results[0]){resolve(null);return;}
+      if(status!==google.maps.places.PlacesServiceStatus.OK||!results||!results[0]){
+        const fallbackMeta={ts:now,unavailable:true,photo:'',rating:'',ratingTotal:'',address:'',type:''};
+        cache[key]=fallbackMeta;setPlaceCache(cache);resolve(fallbackMeta);return;
+      }
       const p=results[0];
       const photo=p.photos&&p.photos[0]?p.photos[0].getUrl({maxWidth:320,maxHeight:220}):'';
       const meta={ts:now,placeId:p.place_id||'',googleName:p.name||'',photo,rating:p.rating||'',ratingTotal:p.user_ratings_total||'',address:p.formatted_address||'',type:(p.types&&p.types[0])?String(p.types[0]).replace(/_/g,' '):''};
@@ -847,17 +877,24 @@ async function fetchPlaceMetaForStop(s){
     });
   });
 }
+function handleRouteImgError(imgEl){
+  if(!imgEl||imgEl.dataset.fallbackApplied==='1')return;
+  imgEl.dataset.fallbackApplied='1';
+  imgEl.src=fallbackImgSvg(imgEl.dataset.placeName||'HK');
+}
 function buildRouteMiniCard(route,s,idx,meta={}){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((meta.googleName||s.name)+' '+coord)}`;
   const navUrl=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(coord)}&travelmode=walking`;
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   const img=meta.photo||fallbackImgSvg(s.name);
-  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal})`:''}`:'Google Places 搜图';
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="${navUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
+  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal})`:''}`:(meta.unavailable?'图片暂不可用':'Google Places 搜图');
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div><div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div><div class="route-mini-actions"><a class="route-mini-action primary" href="${navUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">导航</a><a class="route-mini-action" href="${mapsUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google Maps</a></div></div></div>`;
 }
 function renderRouteCardStrip(route){
-  const el=document.getElementById('route-place-overlay');if(!el||!route)return;activeStopIdx=activeStopIdx??0;document.body.classList.add('route-card-mode');
+  const el=document.getElementById('route-place-overlay');if(!el||!route)return;
+  if(!shouldUseMobileRouteCards()){closeRoutePlaceCard();return;}
+  activeStopIdx=activeStopIdx??0;document.body.classList.add('route-card-mode');
   el.innerHTML=`<div class="route-card-track" id="route-card-track">${route.stops.map((s,i)=>buildRouteMiniCard(route,s,i)).join('')}</div>`;el.classList.add('open');
   const track=document.getElementById('route-card-track');
   if(track){track.addEventListener('scroll',()=>{clearTimeout(routeCardScrollTimer);routeCardScrollTimer=setTimeout(()=>syncRouteCardFromScroll(route.id),90);},{passive:true});}
@@ -890,6 +927,7 @@ function selectRoute(id){
 }
 function showRouteStop(routeId,idx,scrollCard=true){
   activeStopIdx=idx;activeRouteId=routeId;const route=ROUTES.find(r=>r.id===routeId);if(!route||!route.stops[idx])return;const s=route.stops[idx];
+  if(!shouldUseMobileRouteCards())closeRoutePlaceCard();
   updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);map.panTo({lat:s.lat,lng:s.lng});if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
