@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>我的香港地图</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&family=Noto+Sans+TC:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -375,7 +374,8 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
   <div id="topbar">
     <div id="logo">我的香港地图 <span>Personal Field Map · HK</span></div>
     <div id="filters">
-      <div class="pill all-pill active" data-cat="ALL" onclick="setFilter('ALL')"><span class="dot" style="background:var(--gold)"></span>全部</div>
+      <div class="pill route-pill active" data-cat="ROUTE" onclick="setFilter('ROUTE')"><span class="dot" style="background:var(--c-route)"></span>推荐路线</div>
+      <div class="pill all-pill" data-cat="ALL" onclick="setFilter('ALL')"><span class="dot" style="background:var(--gold)"></span>全部</div>
       <div class="pill" data-cat="food" onclick="setFilter('food')"><span class="dot" style="background:var(--c-food)"></span>饮食</div>
       <div class="pill" data-cat="cafe" onclick="setFilter('cafe')"><span class="dot" style="background:var(--c-cafe)"></span>咖啡·生活方式</div>
       <div class="pill" data-cat="market" onclick="setFilter('market')"><span class="dot" style="background:var(--c-market)"></span>市场·街市</div>
@@ -383,7 +383,6 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
       <div class="pill" data-cat="gallery" onclick="setFilter('gallery')"><span class="dot" style="background:var(--c-gallery)"></span>展览·画廊</div>
       <div class="pill" data-cat="vintage" onclick="setFilter('vintage')"><span class="dot" style="background:var(--c-vintage)"></span>古着·杂货</div>
       <div class="pill" data-cat="scenery" onclick="setFilter('scenery')"><span class="dot" style="background:var(--c-scenery)"></span>城市景观</div>
-      <div class="pill route-pill" data-cat="ROUTE" onclick="setFilter('ROUTE')"><span class="dot" style="background:var(--c-route)"></span>推荐路线</div>
     </div>
     <div id="addBtn" onclick="toggleAdding()">＋ 添加点位</div>
   </div>
@@ -441,6 +440,12 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 <div id="route-reviews-modal"></div>
 <div id="toast"></div>
 <script>
+const APP_CONFIG = {
+  // Future migrations should only need to swap this id and implement one provider.
+  dataSource: 'worker-google',
+  mapProvider: 'google',
+};
+
 const WORKER_URL = 'https://mytourmap.kanteryang.workers.dev';
 
 const CATS = {
@@ -453,6 +458,10 @@ const CATS = {
   scenery:  { label:'城市景观',     icon:'🌆', color:'#5aab9e' },
   custom:   { label:'自定义',       icon:'✦',  color:'#e0c060' },
 };
+
+function routeStop(name, lat, lng, desc){
+  return {name, lat, lng, desc};
+}
 
 // ── 推荐路线数据 ──
 const ROUTES = [
@@ -472,6 +481,178 @@ const ROUTES = [
       { name:'半山扶梯（中环至半山自动扶梯）', lat:22.2826, lng:114.1534, desc:'全球最长的户外有盖自动扶梯系统，全长800米，连接中环与半山，沿途街景丰富' },
       { name:'已连拿利天桥', lat:22.2831, lng:114.1558, desc:'中环行人天桥系统的一部分，从高处俯瞰中环街道格局，视角独特' },
       { name:'香港动植物公园（喷水池）', lat:22.2793, lng:114.1586, desc:'1871年开放，香港最早的公共公园，园内有百年古榕和喷水池，是殖民城市规划的遗存' },
+    ]
+  },
+  {
+    id:'r2',
+    title:'北角散步',
+    desc:'宝马山总站 → 北角码头',
+    duration:'约 3-4 小时',
+    distance:'约 5.3km',
+    color:'#8d6cce',
+    stops:[
+      routeStop('宝马山总站',22.2849,114.2048,'从山顶巴士总站出发，先把港岛东的山景和住宅区天际线收入眼底。'),
+      routeStop('校园径',22.2857,114.2018,'校园径沿山坡缓缓下行，视野开阔，是进入北角之前最舒服的一段热身路。'),
+      routeStop('慧翠道',22.2866,114.1986,'沿慧翠道下切，能看到典型港岛半山住宅区与树荫步道的交织。'),
+      routeStop('香港树仁大学',22.2823,114.1971,'校园气氛安静，建筑与山坡地形贴合，是路线里的文化节点。'),
+      routeStop('宝马山道',22.2812,114.1951,'继续沿宝马山道下坡，能明显感到视野从山景转向城市肌理。'),
+      routeStop('赛西湖公园',22.2838,114.1934,'赛西湖一带节奏舒缓，公园与屋苑之间保留了难得的留白感。'),
+      routeStop('百福道',22.2861,114.1912,'百福道连接住宅区与学校区，路段平稳，适合边走边看社区生活。'),
+      routeStop('交通安全城',22.2880,114.1931,'这个有点复古感的公共设施很有社区味，也常常是本地家庭活动空间。'),
+      routeStop('北角街市',22.2917,114.1984,'进入老北角的核心地带，街市里的熟食、杂货和叫卖声一下子把气氛拉满。'),
+      routeStop('渣华道街市',22.2925,114.2007,'再往海边走，街市和干货铺、车流与电车线交叠出典型港岛东节奏。'),
+      routeStop('春秧街',22.2913,114.2025,'春秧街是最有北角辨识度的街景之一，电车穿过街市，是烟火气最浓的一段。'),
+      routeStop('北角码头',22.2931,114.2019,'最后走到海边，视野一下打开，适合作为收尾停下来吹海风。'),
+    ]
+  },
+  {
+    id:'r3',
+    title:'土瓜湾散步',
+    desc:'海心公园 → 靠背垄道游乐场',
+    duration:'约 2-3 小时',
+    distance:'约 3.1km',
+    color:'#d1705f',
+    stops:[
+      routeStop('海心公园',22.3077,114.1890,'从海心公园起步，先用开阔海景打开这条兼具文艺与老社区感的路线。'),
+      routeStop('九龙城渡轮码头',22.3090,114.1912,'渡轮码头保留了旧九龙海滨交通的记忆，也是观察海面与工地更新的好位置。'),
+      routeStop('牛棚艺术村',22.3168,114.1882,'牛棚艺术村是老工业空间活化的代表，安静而有创作气息。'),
+      routeStop('土瓜湾街市',22.3154,114.1871,'从艺术村回到街市，马上切换到最接地气的土瓜湾日常。'),
+      routeStop('美善同里',22.3171,114.1860,'这段旧楼街巷尺度亲切，能感受到老九龙住宅区的细密纹理。'),
+      routeStop('靠背垄道游乐场',22.3185,114.1849,'路线终点回到社区公共空间，是很有生活感的收束。'),
+    ]
+  },
+  {
+    id:'r4',
+    title:'大坑散步',
+    desc:'天后站 → 莲花宫',
+    duration:'约 2.5-3.5 小时',
+    distance:'约 3.8km',
+    color:'#b55d73',
+    stops:[
+      routeStop('天后站',22.2821,114.1916,'从天后地铁站起步，先从交通枢纽切入港岛东边缘的坡地社区。'),
+      routeStop('皇仁书院',22.2810,114.1910,'名校与旧建筑并置，替这条路线定下带点历史感的开场。'),
+      routeStop('火龙径',22.2794,114.1928,'火龙径最有在地辨识度，街名本身就带着大坑独特的民俗记忆。'),
+      routeStop('浣纱街',22.2784,114.1922,'这里的街道尺度紧凑，餐厅、小店和住宅混在一起，氛围很轻松。'),
+      routeStop('融苑',22.2769,114.1938,'沿坡而上进入较安静的住宅带，节奏开始慢下来。'),
+      routeStop('虎豹别墅',22.2689,114.1919,'历史建筑与山坡地形结合得很强，是整条路线最有传奇色彩的一站。'),
+      routeStop('励德村',22.2790,114.1946,'圆筒形公屋极具辨识度，空间感和结构感都非常特别。'),
+      routeStop('莲花宫',22.2808,114.1928,'最后回到寺庙节点，以带点静气的空间收尾。'),
+    ]
+  },
+  {
+    id:'r5',
+    title:'荃湾散步（荃湾→深井）',
+    desc:'荃湾西站 → 青马大桥视角',
+    duration:'约 3.5-4.5 小时',
+    distance:'约 6.8km',
+    color:'#4e97b5',
+    stops:[
+      routeStop('荃湾西站',22.3680,114.1097,'从荃湾西站出发，先进入海边与高架路并存的新旧交界。'),
+      routeStop('橙色隧道',22.3650,114.1025,'这段带点工业感和基础设施气质，是路线里很有电影感的过渡。'),
+      routeStop('近水湾泳滩',22.3590,114.0970,'到泳滩时视野会突然打开，是这条海岸线散步最轻松的一段。'),
+      routeStop('汀九桥',22.3516,114.0935,'桥体尺度巨大，走到附近时会被海与桥的比例感包围。'),
+      routeStop('汀九村',22.3501,114.0967,'从大桥转入村落，立刻从基础设施尺度回到细密的人居环境。'),
+      routeStop('小白楼',22.3487,114.0987,'这类临海旧建筑很适合停下来观察细节与周边地形。'),
+      routeStop('嘉顿大楼',22.3465,114.1015,'沿路继续深入深井一带，能感到生活区与海岸慢慢融合。'),
+      routeStop('青马大桥观景点',22.3440,114.1048,'终点以青马大桥和海上夕阳作结，视野非常开阔。'),
+    ]
+  },
+  {
+    id:'r6',
+    title:'石硖尾散步',
+    desc:'碧翠楼 → 耀东街',
+    duration:'约 3-4 小时',
+    distance:'约 4.6km',
+    color:'#6aa06b',
+    stops:[
+      routeStop('碧翠楼',22.3369,114.1698,'从屋邨空间起步，先进入石硖尾一带最典型的公共住宅语境。'),
+      routeStop('大坑东游乐场',22.3360,114.1715,'这里有大面积公共活动空间，是社区节奏的重要缓冲带。'),
+      routeStop('棠荫街',22.3347,114.1698,'街道尺度贴近地面日常，能看到老社区慢节奏的一面。'),
+      routeStop('彩龙大酒楼',22.3335,114.1682,'带点旧式酒楼气质的节点，让整条路线更有时间层次。'),
+      routeStop('南山村',22.3322,114.1671,'南山村是这条路线最有辨识度的一站，屋邨与山坡的关系很迷人。'),
+      routeStop('大坑西街',22.3318,114.1691,'继续穿行在屋邨与街道之间，路线开始呈现“离地步行”的感觉。'),
+      routeStop('伟智里',22.3307,114.1685,'小街里藏着许多生活性的转角，很适合慢慢走。'),
+      routeStop('赛马会创意艺术中心',22.3328,114.1688,'JCCAC 把旧厂厦转成创意空间，是文艺气最强的节点。'),
+      routeStop('南昌街',22.3308,114.1668,'回到更热闹的街道后，城市节奏一下变快。'),
+      routeStop('石硖尾街市',22.3314,114.1678,'街市把整条路线重新拉回最具体的社区日常。'),
+      routeStop('耀东街',22.3298,114.1688,'以一段更安静的社区街道作为结尾，收束得很自然。'),
+    ]
+  },
+  {
+    id:'r7',
+    title:'鸭脷洲散步（鸭脷洲→香港仔）',
+    desc:'公园升降机 → 长长的堤坝',
+    duration:'约 3-4 小时',
+    distance:'约 4.8km',
+    color:'#4fa6a2',
+    stops:[
+      routeStop('公园升降机',22.2411,114.1542,'从立体步行系统切入鸭脷洲，路线一开始就很有层次。'),
+      routeStop('风之塔公园',22.2401,114.1531,'海边公园开阔通风，是整条路线最轻盈的起步段。'),
+      routeStop('街渡码头',22.2396,114.1520,'街渡码头保留了传统海上交通的节奏，很有在地感。'),
+      routeStop('鸭脷洲大街',22.2412,114.1536,'老街段最能感受到岛上社区的密度与熟人社会氛围。'),
+      routeStop('鸭脷洲大桥',22.2431,114.1558,'过桥时视野打开，港湾、渔船和高楼同时进入画面。'),
+      routeStop('市政大厦',22.2481,114.1548,'这是香港仔日常生活的核心节点之一，人流和公共设施高度集中。'),
+      routeStop('香港仔中心',22.2488,114.1528,'大型住宅与商场空间把街区节奏推到最热闹。'),
+      routeStop('香港仔渔人码头 Pier 6',22.2465,114.1514,'靠近海边后，可以重新感受到渔港文化留下的空间痕迹。'),
+      routeStop('冰厂',22.2453,114.1498,'旧产业记忆和港湾气味会在这段特别明显。'),
+      routeStop('长长的堤坝',22.2444,114.1478,'最后走上堤坝看海与日落，是非常适合收尾的一站。'),
+    ]
+  },
+  {
+    id:'r8',
+    title:'牛池湾散步（牛池湾→新蒲岗）',
+    desc:'牛池湾街市 → 彩虹道游乐场',
+    duration:'约 3-4 小时',
+    distance:'约 5.0km',
+    color:'#d5a145',
+    stops:[
+      routeStop('牛池湾街市',22.3332,114.2143,'从街市起步，最先进入的是东九龙老社区的日常节奏。'),
+      routeStop('牛池湾村',22.3340,114.2126,'旧村与新式住宅共存，是观察地区转变很好的切口。'),
+      routeStop('永定道',22.3350,114.2088,'一路向西，街道开始从旧村转为更规整的公共屋邨格局。'),
+      routeStop('彩虹邨',22.3368,114.2056,'彩虹邨是整条路线最具视觉记忆点的一站。'),
+      routeStop('彩虹邨隧道',22.3357,114.2040,'通过隧道后，空间气质会从住宅区迅速转向启德边缘。'),
+      routeStop('启德站',22.3308,114.2018,'新基础设施和旧机场片区在这里交汇，城市更新感很强。'),
+      routeStop('交汇处休憩花园',22.3293,114.1998,'这类小型休憩空间是新旧城区接缝处很舒服的停顿点。'),
+      routeStop('新蒲岗敬老院',22.3330,114.1969,'走回社区尺度后，会看到更多朴素而真实的城市日常。'),
+      routeStop('启德河',22.3341,114.1948,'启德河是这条路线的重要开放空间，也能看出近年的城市治理痕迹。'),
+      routeStop('彩虹道游乐场',22.3351,114.1933,'最后回到熟悉的社区公园节奏，把这条新旧交错的路线收住。'),
+    ]
+  },
+  {
+    id:'r9',
+    title:'沙田散步',
+    desc:'大围站 → 沙田站',
+    duration:'约 2.5-3.5 小时',
+    distance:'约 4.2km',
+    color:'#5d84c1',
+    stops:[
+      routeStop('大围站',22.3732,114.1789,'从大围站出发，立刻进入新界东典型的河岸与社区并置景观。'),
+      routeStop('村南道',22.3710,114.1804,'沿村南道走，能同时感受到旧村边缘与现代社区的过渡。'),
+      routeStop('车公庙体育馆',22.3704,114.1840,'大型公共设施让路线有一种很典型的新界公共生活尺度。'),
+      routeStop('秦石邨',22.3687,114.1866,'屋邨段平稳安静，最适合观察沙田居民区的日常。'),
+      routeStop('狮子桥',22.3728,114.1886,'桥上是看河景和两岸城市纹理很好的位置。'),
+      routeStop('沙田公园',22.3815,114.1888,'走到公园时视野明显开阔，城门河的舒展感会特别明显。'),
+      routeStop('沙田婚姻登记处',22.3831,114.1881,'这是河边带点仪式感的节点，也让路线多了几分轻松。'),
+      routeStop('沙田站',22.3829,114.1880,'最后回到交通节点，把整条河畔散步自然收束。'),
+    ]
+  },
+  {
+    id:'r10',
+    title:'将军澳散步',
+    desc:'将军澳站 → 蓬莱径回旋处',
+    duration:'约 3-4 小时',
+    distance:'约 5.1km',
+    color:'#3f91c9',
+    stops:[
+      routeStop('将军澳站',22.3077,114.2595,'从地铁站出发，先进入规划感很强的新市镇核心。'),
+      routeStop('唐俊街',22.3091,114.2603,'唐俊街一带商业与住宅密集，是将军澳最有现代生活感的切片。'),
+      routeStop('将军澳海滨公园',22.3093,114.2648,'到了海滨后，路线会一下变得开阔而松弛。'),
+      routeStop('海滨长廊',22.3081,114.2678,'这一段最适合慢慢走，看海面、桥体和远处楼群的层次。'),
+      routeStop('湾畔径',22.3048,114.2689,'继续沿湾畔径前行，海风和步道的节奏感都很舒服。'),
+      routeStop('常宁游乐场',22.3030,114.2658,'从海边切回社区公共空间，整条路线多了几分邻里感。'),
+      routeStop('香港单车馆公园',22.3003,114.2627,'大面积草地与开放空间让这里很适合休息，也很有新市镇气质。'),
+      routeStop('唐明街公园',22.3038,114.2577,'从大型公园转到社区公园，路线进入更生活化的尾段。'),
+      routeStop('蓬莱径回旋处',22.3062,114.2546,'最后在较安静的道路节点结束，适合作为返程前的缓冲。'),
     ]
   }
 ];
@@ -499,12 +680,118 @@ const INIT_PLACES = [
   {id:20,name:'桂林街布料市場',cat:'market',lat:22.3280,lng:114.1580,desc:'傳統廣繡面料、鈕扣絲帶，對手工藝人有高參考價值'},
 ];
 
-let places=[],nextId=1,activeFilter='ALL',gmarkers={},activeCard=null;
+let places=[],nextId=1,activeFilter='ROUTE',gmarkers={},activeCard=null;
 let addingMode=false,selectedCat='food',saving=false,map,infoWindow;
 let activeRouteId=null,routeMarkers=[],routePolyline=null,activeStopIdx=null;
 let sidebarCollapsed=false;
 let placeService=null;
 let routeCardScrollTimer=null;
+let mapsApiPromise=null;
+let placesLibraryPromise=null;
+
+const EMPTY_STOP_META = {
+  unavailable:true,
+  photo:'',
+  rating:'',
+  ratingTotal:'',
+  address:'',
+  type:'',
+  reviewText:'',
+  reviewAuthor:'',
+  reviewAgo:'',
+  reviewsUri:'',
+  reviews:[],
+};
+
+function createStopMeta(data={}){
+  return {...EMPTY_STOP_META,...data};
+}
+
+function getDataSource(){
+  return DATA_SOURCES[APP_CONFIG.dataSource]||DATA_SOURCES['worker-google'];
+}
+
+const DATA_SOURCES = {
+  'worker-google':{
+    id:'worker-google',
+    reviewLabel:'Google 评价',
+    reviewLoadingText:'正在载入 Google 评价…',
+    reviewEmptyText:'这个地点目前没有拿到可显示的 Google 评价。Google Places 官方最多返回 5 条评价，不会返回 10 条。',
+    reviewFetchingText:'正在获取这个地点的评分、评论和图片信息。',
+    fallbackMetaLabel:'Google Places 搜图',
+    async fetchPlaces(){
+      const res=await fetch(WORKER_URL);
+      const data=await res.json();
+      return Array.isArray(data)&&data.length>0?data:[];
+    },
+    async savePlaces(nextPlaces){
+      return fetch(WORKER_URL,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({places:nextPlaces})
+      });
+    },
+    async fetchMapsKey(){
+      const keyRes=await fetch(WORKER_URL+'/maps-key');
+      const {key}=await keyRes.json();
+      return key;
+    },
+    async fetchStopMeta(stop,ctx){
+      return fetchGoogleStopMeta(stop,ctx);
+    },
+  },
+  'local-only':{
+    id:'local-only',
+    reviewLabel:'本地备注',
+    reviewLoadingText:'正在载入地点资料…',
+    reviewEmptyText:'当前数据源没有外部评分与评论，只展示路线备注。',
+    reviewFetchingText:'正在获取这个地点的本地备注信息。',
+    fallbackMetaLabel:'本地图片占位',
+    async fetchPlaces(){
+      return [];
+    },
+    async savePlaces(){
+      return {ok:true};
+    },
+    async fetchMapsKey(){
+      throw new Error('Current data source does not provide a maps key.');
+    },
+    async fetchStopMeta(stop){
+      return createStopMeta({reviewText:stop.desc||''});
+    },
+  }
+};
+
+const MAP_PROVIDERS = {
+  google:{
+    createMap(el, options){ return new google.maps.Map(el, options); },
+    createInfoWindow(options){ return new google.maps.InfoWindow(options); },
+    createMarker(options){ return new google.maps.Marker(options); },
+    createPolyline(options){ return new google.maps.Polyline(options); },
+    createBounds(){ return new google.maps.LatLngBounds(); },
+    extendBounds(bounds, latLng){ bounds.extend(latLng); },
+    fitBounds(instance, bounds, padding){ instance.fitBounds(bounds, padding); },
+    createSize(w, h){ return new google.maps.Size(w, h); },
+    createPoint(x, y){ return new google.maps.Point(x, y); },
+    createLatLng(lat, lng){ return new google.maps.LatLng(lat, lng); },
+    triggerResize(instance){ google.maps.event.trigger(instance, 'resize'); },
+    triggerMarkerClick(marker){ google.maps.event.trigger(marker, 'click'); },
+    bounceMarker(marker){
+      marker.setAnimation(google.maps.Animation.BOUNCE);
+      setTimeout(()=>marker?.setAnimation(null),650);
+    },
+    createPlacesService(instance){ return new google.maps.places.PlacesService(instance); },
+    async importPlacesLibrary(){
+      if(typeof google.maps.importLibrary==='function') await google.maps.importLibrary('places');
+    },
+    isPlacesStatusOk(status){ return status===google.maps.places.PlacesServiceStatus.OK; },
+    forwardArrow(color, scale=3.2){ return {path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale,strokeColor:color}; }
+  }
+};
+
+function getMapProvider(){
+  return MAP_PROVIDERS[APP_CONFIG.mapProvider]||MAP_PROVIDERS.google;
+}
 
 function toast(msg,type=''){
   const el=document.getElementById('toast');
@@ -513,9 +800,9 @@ function toast(msg,type=''){
 }
 
 async function loadPlaces(){
+  const source=getDataSource();
   try{
-    const res=await fetch(WORKER_URL);
-    const data=await res.json();
+    const data=await source.fetchPlaces();
     places=Array.isArray(data)&&data.length>0?data:INIT_PLACES;
     if(!Array.isArray(data)||data.length===0)await savePlaces(false);
     nextId=Math.max(...places.map(p=>p.id),0)+1;
@@ -523,25 +810,73 @@ async function loadPlaces(){
 }
 
 async function savePlaces(showToast=true){
+  const source=getDataSource();
   try{
-    const res=await fetch(WORKER_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({places})});
+    const res=await source.savePlaces(places);
     if(!res.ok)throw new Error();
     if(showToast)toast('已同步保存 ✓','success');
   }catch(e){if(showToast)toast('保存失败，请重试','error');}
 }
 
+async function loadMapsApi(key){
+  if(window.google?.maps)return;
+  if(!mapsApiPromise){
+    mapsApiPromise=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src=`https://maps.googleapis.com/maps/api/js?key=${key}&language=zh-TW&v=weekly`;
+      s.async=true;
+      s.defer=true;
+      s.onload=resolve;
+      s.onerror=reject;
+      document.head.appendChild(s);
+    });
+  }
+  await mapsApiPromise;
+}
+
+async function ensurePlacesLibrary(){
+  if(placeService||!window.google?.maps)return placeService;
+  const mapProvider=getMapProvider();
+  if(!placesLibraryPromise){
+    placesLibraryPromise=(async()=>{
+      await mapProvider.importPlacesLibrary();
+      if(google.maps.places){
+        placeService=mapProvider.createPlacesService(map);
+      }
+      return placeService;
+    })().catch(err=>{
+      placesLibraryPromise=null;
+      throw err;
+    });
+  }
+  try{
+    await placesLibraryPromise;
+  }catch(e){
+    console.warn('Places library load failed',e);
+    return null;
+  }
+  return placeService;
+}
+
+function preloadPlacesLibrary(){
+  const runner=()=>ensurePlacesLibrary().catch(()=>null);
+  if('requestIdleCallback' in window){
+    window.requestIdleCallback(runner,{timeout:1800});
+  }else{
+    setTimeout(runner,1200);
+  }
+}
+
 // ── Map init ──
 async function initMap(){
-  await loadPlaces();
-  const keyRes=await fetch(WORKER_URL+'/maps-key');
-  const {key}=await keyRes.json();
-  await new Promise((resolve,reject)=>{
-    const s=document.createElement('script');
-    s.src=`https://maps.googleapis.com/maps/api/js?key=${key}&language=zh-TW&libraries=places`; // Places library 用于自动搜索地点照片/评分
-    s.onload=resolve;s.onerror=reject;
-    document.head.appendChild(s);
-  });
-  map=new google.maps.Map(document.getElementById('map'),{
+  const source=getDataSource();
+  const mapProvider=getMapProvider();
+  const [_,key]=await Promise.all([
+    loadPlaces(),
+    source.fetchMapsKey()
+  ]);
+  await loadMapsApi(key);
+  map=mapProvider.createMap(document.getElementById('map'),{
     center:{lat:22.315,lng:114.175},zoom:13,
     styles:[
       {elementType:'geometry',stylers:[{color:'#f7f7f5'}]},
@@ -568,8 +903,7 @@ async function initMap(){
     ],
     disableDefaultUI:false,zoomControl:true,streetViewControl:false,mapTypeControl:false,fullscreenControl:false,
   });
-  infoWindow=new google.maps.InfoWindow({maxWidth:260});
-  if(google.maps.places){ placeService=new google.maps.places.PlacesService(map); }
+  infoWindow=mapProvider.createInfoWindow({maxWidth:260});
   map.addListener('click',e=>{
     infoWindow.close();
     if(!addingMode)return;
@@ -578,28 +912,29 @@ async function initMap(){
   });
   document.getElementById('loading').classList.add('hidden');
   render();
+  if(activeFilter==='ROUTE'&&ROUTES.length){
+    selectRoute(activeRouteId||ROUTES[0].id);
+  }
   setSidebarCollapsed(false);
+  preloadPlacesLibrary();
 }
 
 
 function makeMarkerIcon(cat,color){
+  const mapProvider=getMapProvider();
   const c=color||((CATS[cat]||CATS.custom).color);
   const icon=CATS[cat]?CATS[cat].icon:'✦';
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${c}" opacity="0.95"/><circle cx="16" cy="16" r="8" fill="rgba(0,0,0,0.2)"/><text x="16" y="20" text-anchor="middle" font-size="11">${icon}</text></svg>`;
-  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(28,34),anchor:new google.maps.Point(14,34)};
-}
-
-function makeRouteStopIcon(num,color){
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${color}" opacity="0.95"/><circle cx="16" cy="16" r="9" fill="rgba(0,0,0,0.3)"/><text x="16" y="20.5" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="sans-serif">${num}</text></svg>`;
-  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(30,36),anchor:new google.maps.Point(15,36)};
+  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:mapProvider.createSize(28,34),anchor:mapProvider.createPoint(14,34)};
 }
 
 function renderMarkers(){
   Object.values(gmarkers).forEach(m=>m.setMap(null));
   gmarkers={};
   if(activeFilter==='ROUTE')return;
+  const mapProvider=getMapProvider();
   places.filter(p=>activeFilter==='ALL'||p.cat===activeFilter).forEach(p=>{
-    const m=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
+    const m=mapProvider.createMarker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
     m.addListener('click',()=>{
       const c=CATS[p.cat]||CATS.custom;
       infoWindow.setContent(`<div class="popup-inner"><div class="popup-cat" style="color:${c.color}">${c.icon} ${c.label}</div><div class="popup-name">${p.name}</div><div class="popup-desc">${p.desc||''}</div></div><div class="popup-actions"><div class="popup-btn" onclick="focusCard(${p.id})">列表中查看</div><div class="popup-btn del" onclick="deletePlace(${p.id})">删除</div></div>`);
@@ -648,35 +983,6 @@ function renderRoutePanel(){
         </div>
       </div>`).join('');
   }
-}
-
-function selectRoute(id){
-  activeRouteId=id;
-  const route=ROUTES.find(r=>r.id===id);
-  if(!route)return;
-  // clear existing route
-  clearRoute();
-  // draw polyline
-  const path=route.stops.map(s=>({lat:s.lat,lng:s.lng}));
-  routePolyline=new google.maps.Polyline({
-    path,map,
-    strokeColor:route.color,
-    strokeOpacity:0.8,
-    strokeWeight:3,
-    icons:[{icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:3,strokeColor:route.color},offset:'100%',repeat:'80px'}]
-  });
-  // place stop markers
-  route.stops.forEach((s,i)=>{
-    const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color),title:s.name,zIndex:10});
-    m.addListener('click',()=>showRouteStop(id,i));
-    routeMarkers.push(m);
-  });
-  // fit bounds
-  const bounds=new google.maps.LatLngBounds();
-  route.stops.forEach(s=>bounds.extend({lat:s.lat,lng:s.lng}));
-  map.fitBounds(bounds,getMapPadding());
-  // show detail
-  showRouteDetail(id);
 }
 
 function showRouteDetail(id){
@@ -779,6 +1085,7 @@ function getMapPadding(){
 }
 
 function setSidebarCollapsed(v){
+  const mapProvider=getMapProvider();
   if(shouldUseMobileRouteCards()&&activeFilter==='ROUTE'&&activeRouteId){
     sidebarCollapsed=true;
     document.body.classList.add('sidebar-collapsed');
@@ -786,7 +1093,7 @@ function setSidebarCollapsed(v){
     const headBtn=document.getElementById('sidebar-head-toggle');
     if(floatBtn)floatBtn.textContent='展开侧栏';
     if(headBtn)headBtn.textContent='展开';
-    setTimeout(()=>{ if(map)google.maps.event.trigger(map,'resize'); },300);
+    setTimeout(()=>{ if(map)mapProvider.triggerResize(map); },300);
     return;
   }
   sidebarCollapsed=!!v;
@@ -795,7 +1102,7 @@ function setSidebarCollapsed(v){
   const headBtn=document.getElementById('sidebar-head-toggle');
   if(floatBtn)floatBtn.textContent=sidebarCollapsed?'展开侧栏':'收起侧栏';
   if(headBtn)headBtn.textContent=sidebarCollapsed?'展开':'收起';
-  setTimeout(()=>{ if(map)google.maps.event.trigger(map,'resize'); },300);
+  setTimeout(()=>{ if(map)mapProvider.triggerResize(map); },300);
 }
 function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
 
@@ -822,35 +1129,6 @@ function buildRouteMapCard(route,s,idx){
     </div>`;
 }
 
-function openRoutePlaceCard(route,s,idx){
-  const el=document.getElementById('route-place-overlay');
-  if(!el)return;
-  el.innerHTML=buildRouteMapCard(route,s,idx);
-  el.classList.add('open');
-}
-function closeRoutePlaceCard(){
-  const el=document.getElementById('route-place-overlay');
-  if(el){el.classList.remove('open');el.innerHTML='';}
-}
-
-function showRouteStop(routeId,idx){
-  activeStopIdx=idx;
-  activeRouteId=routeId;
-  const route=ROUTES.find(r=>r.id===routeId);
-  if(!route||!route.stops[idx])return;
-  const s=route.stops[idx];
-  if(isMobileLayout())setSidebarCollapsed(true);
-  openRoutePlaceCard(route,s,idx);
-  if(routeMarkers[idx]){
-    routeMarkers[idx].setAnimation(google.maps.Animation.BOUNCE);
-    setTimeout(()=>routeMarkers[idx]?.setAnimation(null),650);
-  }
-  map.panTo({lat:s.lat,lng:s.lng});
-  if(map.getZoom()<15)map.setZoom(15);
-  document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));
-  document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
 function backToRouteList(){
   clearRoute();
   activeRouteId=null;activeStopIdx=null;
@@ -859,13 +1137,6 @@ function backToRouteList(){
   document.getElementById('sidebar-title').textContent='推荐路线';
   document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
   infoWindow.close();
-}
-
-function clearRoute(){
-  closeRoutePlaceCard();
-  routeMarkers.forEach(m=>m.setMap(null));
-  routeMarkers=[];
-  if(routePolyline){routePolyline.setMap(null);routePolyline=null;}
 }
 
 function render(){renderMarkers();renderCards();}
@@ -882,7 +1153,12 @@ function focusCard(id,panMap=true){
   activeCard=id;
   const p=places.find(x=>x.id===id);
   if(!p)return;
-  if(panMap&&map){map.panTo({lat:p.lat,lng:p.lng});map.setZoom(16);google.maps.event.trigger(gmarkers[id],'click');}
+  if(panMap&&map){
+    const mapProvider=getMapProvider();
+    map.panTo({lat:p.lat,lng:p.lng});
+    map.setZoom(16);
+    mapProvider.triggerMarkerClick(gmarkers[id]);
+  }
   renderCards();
   document.getElementById(`card-${id}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -946,12 +1222,13 @@ function exitAddingMode(){
 
 window.addEventListener('resize',()=>{
   if(activeRouteId){
+    const mapProvider=getMapProvider();
     const route=ROUTES.find(r=>r.id===activeRouteId);
     if(route&&map){
       if(shouldUseMobileRouteCards())renderRouteCardStrip(route);else closeRoutePlaceCard();
-      const bounds=new google.maps.LatLngBounds();
-      route.stops.forEach(stop=>bounds.extend({lat:stop.lat,lng:stop.lng}));
-      map.fitBounds(bounds,getMapPadding());
+      const bounds=mapProvider.createBounds();
+      route.stops.forEach(stop=>mapProvider.extendBounds(bounds,{lat:stop.lat,lng:stop.lng}));
+      mapProvider.fitBounds(map,bounds,getMapPadding());
     }
   }
 });
@@ -969,47 +1246,52 @@ function fallbackImgSvg(label){
   return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
 }
 function findPlaceFromQueryPromise(request){
+  const mapProvider=getMapProvider();
   return new Promise(resolve=>{
     placeService.findPlaceFromQuery(request,(results,status)=>{
-      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results[0])resolve(results[0]);
+      if(mapProvider.isPlacesStatusOk(status)&&results&&results[0])resolve(results[0]);
       else resolve(null);
     });
   });
 }
 function nearbySearchPromise(request){
+  const mapProvider=getMapProvider();
   return new Promise(resolve=>{
     placeService.nearbySearch(request,(results,status)=>{
-      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results[0])resolve(results[0]);
+      if(mapProvider.isPlacesStatusOk(status)&&results&&results[0])resolve(results[0]);
       else resolve(null);
     });
   });
 }
 function getPlaceDetailsPromise(placeId){
+  const mapProvider=getMapProvider();
   return new Promise(resolve=>{
     placeService.getDetails({placeId,fields:['reviews','url']},(details,status)=>{
-      if(status===google.maps.places.PlacesServiceStatus.OK&&details)resolve(details);
+      if(mapProvider.isPlacesStatusOk(status)&&details)resolve(details);
       else resolve(null);
     });
   });
 }
-async function fetchPlaceMetaForStop(s){
+async function fetchGoogleStopMeta(s){
+  const mapProvider=getMapProvider();
   const cache=getPlaceCache();const key=routeStopCacheKey(s);const now=Date.now();
   if(cache[key]&&cache[key].ts&&now-cache[key].ts<1000*60*60*24*14){return cache[key];}
-  if(!placeService||!google.maps.places){return null;}
+  const service=await ensurePlacesLibrary();
+  if(!service||!google.maps.places){return null;}
   const queryFields=['place_id','name','photos','rating','user_ratings_total','formatted_address','types'];
   const queryVariants=[`${s.name} 香港`,`${s.name} Hong Kong`,s.name];
   let place=null;
   for(const query of queryVariants){
-    place=await findPlaceFromQueryPromise({query,fields:queryFields,locationBias:new google.maps.LatLng(s.lat,s.lng)});
+    place=await findPlaceFromQueryPromise({query,fields:queryFields,locationBias:mapProvider.createLatLng(s.lat,s.lng)});
     if(place)break;
   }
-  if(!place)place=await nearbySearchPromise({location:new google.maps.LatLng(s.lat,s.lng),radius:180,keyword:s.name});
+  if(!place)place=await nearbySearchPromise({location:mapProvider.createLatLng(s.lat,s.lng),radius:180,keyword:s.name});
   if(!place){
-    const fallbackMeta={ts:now,unavailable:true,photo:'',rating:'',ratingTotal:'',address:'',type:'',reviewText:'',reviewAuthor:'',reviewAgo:'',reviewsUri:'',reviews:[]};
+    const fallbackMeta=createStopMeta({ts:now});
     cache[key]=fallbackMeta;setPlaceCache(cache);return fallbackMeta;
   }
   const photo=place.photos&&place.photos[0]?place.photos[0].getUrl({maxWidth:420,maxHeight:280}):'';
-  const baseMeta={ts:now,placeId:place.place_id||'',googleName:place.name||'',photo,rating:place.rating||'',ratingTotal:place.user_ratings_total||'',address:place.formatted_address||place.vicinity||'',type:(place.types&&place.types[0])?String(place.types[0]).replace(/_/g,' '):'',reviewText:'',reviewAuthor:'',reviewAgo:'',reviewsUri:'',reviews:[]};
+  const baseMeta=createStopMeta({ts:now,placeId:place.place_id||'',googleName:place.name||'',photo,rating:place.rating||'',ratingTotal:place.user_ratings_total||'',address:place.formatted_address||place.vicinity||'',type:(place.types&&place.types[0])?String(place.types[0]).replace(/_/g,' '):''});
   if(!place.place_id){cache[key]=baseMeta;setPlaceCache(cache);return baseMeta;}
   const details=await getPlaceDetailsPromise(place.place_id);
   if(details){
@@ -1020,28 +1302,40 @@ async function fetchPlaceMetaForStop(s){
   }
   cache[key]=baseMeta;setPlaceCache(cache);return baseMeta;
 }
+async function fetchPlaceMetaForStop(s){
+  const source=getDataSource();
+  try{
+    return await source.fetchStopMeta(s,{map,placeService,ensurePlacesLibrary});
+  }catch(e){
+    console.warn('Stop meta fetch failed',e);
+    return createStopMeta();
+  }
+}
 function handleRouteImgError(imgEl){
   if(!imgEl||imgEl.dataset.fallbackApplied==='1')return;
   imgEl.dataset.fallbackApplied='1';
   imgEl.src=fallbackImgSvg(imgEl.dataset.placeName||'HK');
 }
 function buildRouteReviewSnippet(meta={}){
+  const source=getDataSource();
   if(!meta.reviewText)return '';
-  const head=[meta.reviewAuthor||'Google 用户',meta.reviewAgo||'Google 评价'].filter(Boolean).join(' · ');
+  const head=[meta.reviewAuthor||'匿名用户',meta.reviewAgo||source.reviewLabel].filter(Boolean).join(' · ');
   return `<div class="route-mini-review"><div class="route-mini-review-head">💬 ${escapeHtml(head)}</div><div class="route-mini-review-text">${escapeHtml(meta.reviewText)}</div></div>`;
 }
 function renderRouteReviewsModal(stopName,meta={}){
-  const ratingLine=meta.rating?`${meta.rating} ★${meta.ratingTotal?` · ${meta.ratingTotal} 条 Google 评价`:''}`:'Google Places 评价';
+  const source=getDataSource();
+  const ratingLine=meta.rating?`${meta.rating} ★${meta.ratingTotal?` · ${meta.ratingTotal} 条 ${source.reviewLabel}`:''}`:source.reviewLabel;
   const reviews=Array.isArray(meta.reviews)?meta.reviews:[];
-  const reviewHtml=reviews.length?reviews.map((review,idx)=>`<div class="route-review-item"><div class="route-review-top"><div><div class="route-review-author">${escapeHtml(review.author||`Google 用户 ${idx+1}`)}</div><div class="route-review-time">${escapeHtml(review.ago||'Google 评价')}</div></div><div class="route-review-stars">${review.rating?`${escapeHtml(String(review.rating))} ★`:''}</div></div><div class="route-review-text">${escapeHtml(review.text||'')}</div></div>`).join(''):`<div class="route-reviews-empty">这个地点目前没有拿到可显示的 Google 评价。Google Places 官方最多返回 5 条评价，不会返回 10 条。</div>`;
+  const reviewHtml=reviews.length?reviews.map((review,idx)=>`<div class="route-review-item"><div class="route-review-top"><div><div class="route-review-author">${escapeHtml(review.author||`用户 ${idx+1}`)}</div><div class="route-review-time">${escapeHtml(review.ago||source.reviewLabel)}</div></div><div class="route-review-stars">${review.rating?`${escapeHtml(String(review.rating))} ★`:''}</div></div><div class="route-review-text">${escapeHtml(review.text||'')}</div></div>`).join(''):`<div class="route-reviews-empty">${escapeHtml(source.reviewEmptyText)}</div>`;
   return `<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stopName)}</div><div class="route-reviews-sub">${escapeHtml(ratingLine)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list">${reviewHtml}</div></div>`;
 }
 async function openRouteReviews(routeId,idx){
+  const source=getDataSource();
   const route=ROUTES.find(r=>r.id===routeId);
   const stop=route?.stops?.[idx];
   const modal=document.getElementById('route-reviews-modal');
   if(!stop||!modal)return;
-  modal.innerHTML=`<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stop.name)}</div><div class="route-reviews-sub">正在载入 Google 评价…</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list"><div class="route-reviews-empty">正在获取这个地点的评分、评论和图片信息。</div></div></div>`;
+  modal.innerHTML=`<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stop.name)}</div><div class="route-reviews-sub">${escapeHtml(source.reviewLoadingText)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list"><div class="route-reviews-empty">${escapeHtml(source.reviewFetchingText)}</div></div></div>`;
   modal.classList.add('open');
   const meta=await fetchPlaceMetaForStop(stop);
   modal.innerHTML=renderRouteReviewsModal(stop.name,meta||{});
@@ -1053,13 +1347,20 @@ function closeRouteReviews(){
   modal.innerHTML='';
 }
 function buildRouteMiniCard(route,s,idx,meta={}){
+  const source=getDataSource();
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((meta.googleName||s.name)+' '+coord)}`;
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   const img=meta.photo||fallbackImgSvg(s.name);
-  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':'Google Places 搜图');
+  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
   const reviewSnippet=buildRouteReviewSnippet(meta);
   return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
+}
+function openRoutePlaceCard(route,s,idx){
+  const el=document.getElementById('route-place-overlay');
+  if(!el)return;
+  el.innerHTML=buildRouteMapCard(route,s,idx);
+  el.classList.add('open');
 }
 function renderRouteCardStrip(route){
   const el=document.getElementById('route-place-overlay');if(!el||!route)return;
@@ -1084,21 +1385,24 @@ function syncRouteCardFromScroll(routeId){
 function updateRouteCardActive(idx,scrollToCard=true){document.querySelectorAll('.route-mini-card').forEach(card=>card.classList.toggle('active',Number(card.dataset.stopIdx)===idx));if(scrollToCard){document.getElementById(`route-mini-${idx}`)?.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});}}
 function updateRouteMarkerActive(route,idx){routeMarkers.forEach((m,i)=>{m.setIcon(makeRouteStopIcon(i+1,route.color,i===idx));m.setZIndex(i===idx?50:10);});}
 function makeRouteStopIcon(num,color,active=false){
+  const mapProvider=getMapProvider();
   const fill=active?'#111009':color;const ring=active?color:'rgba(0,0,0,0.3)';const scale=active?34:30, anchorX=active?17:15, anchorY=active?40:36;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="44" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${fill}" opacity="0.98"/><circle cx="16" cy="16" r="10" fill="${ring}"/><text x="16" y="20.8" text-anchor="middle" font-size="11" font-weight="800" fill="white" font-family="Arial, sans-serif">${num}</text></svg>`;
-  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(scale,anchorY),anchor:new google.maps.Point(anchorX,anchorY)};
+  return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:mapProvider.createSize(scale,anchorY),anchor:mapProvider.createPoint(anchorX,anchorY)};
 }
 function selectRoute(id){
+  const mapProvider=getMapProvider();
   activeRouteId=id;activeStopIdx=0;const route=ROUTES.find(r=>r.id===id);if(!route)return;clearRoute();
   const path=route.stops.map(s=>({lat:s.lat,lng:s.lng}));
-  routePolyline=new google.maps.Polyline({path,map,strokeColor:route.color,strokeOpacity:0.86,strokeWeight:4,icons:[{icon:{path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,scale:3.2,strokeColor:route.color},offset:'100%',repeat:'76px'}]});
-  route.stops.forEach((s,i)=>{const m=new google.maps.Marker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color,i===0),title:s.name,zIndex:i===0?50:10});m.addListener('click',()=>showRouteStop(id,i,true));routeMarkers.push(m);});
-  const bounds=new google.maps.LatLngBounds();route.stops.forEach(s=>bounds.extend({lat:s.lat,lng:s.lng}));map.fitBounds(bounds,getMapPadding());showRouteDetail(id);if(isMobileLayout())setSidebarCollapsed(true);renderRouteCardStrip(route);
+  routePolyline=mapProvider.createPolyline({path,map,strokeColor:route.color,strokeOpacity:0.86,strokeWeight:4,icons:[{icon:mapProvider.forwardArrow(route.color,3.2),offset:'100%',repeat:'76px'}]});
+  route.stops.forEach((s,i)=>{const m=mapProvider.createMarker({position:{lat:s.lat,lng:s.lng},map,icon:makeRouteStopIcon(i+1,route.color,i===0),title:s.name,zIndex:i===0?50:10});m.addListener('click',()=>showRouteStop(id,i,true));routeMarkers.push(m);});
+  const bounds=mapProvider.createBounds();route.stops.forEach(s=>mapProvider.extendBounds(bounds,{lat:s.lat,lng:s.lng}));mapProvider.fitBounds(map,bounds,getMapPadding());showRouteDetail(id);if(isMobileLayout())setSidebarCollapsed(true);renderRouteCardStrip(route);
 }
 function showRouteStop(routeId,idx,scrollCard=true){
+  const mapProvider=getMapProvider();
   activeStopIdx=idx;activeRouteId=routeId;const route=ROUTES.find(r=>r.id===routeId);if(!route||!route.stops[idx])return;const s=route.stops[idx];
-  if(!shouldUseMobileRouteCards())closeRoutePlaceCard();
-  updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);map.panTo({lat:s.lat,lng:s.lng});if(map.getZoom()<15)map.setZoom(15);
+  if(shouldUseMobileRouteCards()){}else openRoutePlaceCard(route,s,idx);
+  updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);map.panTo({lat:s.lat,lng:s.lng});if(routeMarkers[idx])mapProvider.bounceMarker(routeMarkers[idx]);if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeRoutePlaceCard(){const el=document.getElementById('route-place-overlay');if(el){el.classList.remove('open');el.innerHTML='';}document.body.classList.remove('route-card-mode');}
