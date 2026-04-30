@@ -694,20 +694,38 @@ function getAmapSchemeUrl(s,mode='walk'){
   return `amapuri://route/plan/?sourceApplication=mytourmap&dlat=${lat}&dlon=${lng}&dname=${name}&dev=0&t=${travelType}`;
 }
 
+function isIosSafari(){
+  const ua=navigator.userAgent||'';
+  const isIOS=/iP(hone|ad|od)/.test(ua);
+  const isSafari=/Safari/i.test(ua)&&!/CriOS|FxiOS|EdgiOS|OPiOS|mercury/i.test(ua);
+  return isIOS&&isSafari;
+}
+
 function openAmapNavigation(routeId,idx,mode='walk'){
   const route=ROUTES.find(r=>r.id===routeId);
   const stop=route?.stops?.[idx];
   if(!stop)return;
   const schemeUrl=getAmapSchemeUrl(stop,mode);
   const webUrl=getAmapNavUrl(stop,mode);
+  if(isIosSafari()){
+    window.location.href=schemeUrl;
+    return;
+  }
   const startedAt=Date.now();
   const fallbackTimer=setTimeout(()=>{
     if(document.visibilityState==='visible'&&Date.now()-startedAt<1800){
-      window.location.href=webUrl;
+      window.location.replace(webUrl);
     }
   },900);
-  const clearFallback=()=>{clearTimeout(fallbackTimer);document.removeEventListener('visibilitychange',clearFallback);};
+  const clearFallback=()=>{
+    clearTimeout(fallbackTimer);
+    document.removeEventListener('visibilitychange',clearFallback);
+    window.removeEventListener('pagehide',clearFallback);
+    window.removeEventListener('blur',clearFallback);
+  };
   document.addEventListener('visibilitychange',clearFallback,{once:true});
+  window.addEventListener('pagehide',clearFallback,{once:true});
+  window.addEventListener('blur',clearFallback,{once:true});
   window.location.href=schemeUrl;
 }
 
