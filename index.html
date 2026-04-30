@@ -461,8 +461,8 @@ const CATS = {
   custom:   { label:'自定义',       icon:'✦',  color:'#e0c060' },
 };
 
-function routeStop(name, lat, lng, desc){
-  return {name, lat, lng, desc};
+function routeStop(name, lat, lng, desc, extra={}){
+  return {name, lat, lng, desc, ...extra};
 }
 
 // ── 推荐路线数据 ──
@@ -681,6 +681,10 @@ const INIT_PLACES = [
   {id:19,name:'油麻地天后廟',cat:'heritage',lat:22.3112,lng:114.1715,desc:'1876年，廟宇建築群，清晨8點前香火最靜'},
   {id:20,name:'桂林街布料市場',cat:'market',lat:22.3280,lng:114.1580,desc:'傳統廣繡面料、鈕扣絲帶，對手工藝人有高參考價值'},
 ];
+
+const DIANPING_URLS = {
+  '张记潮汕峡山酥面':'https://m.dianping.com/shopinfo/G2XcIucc84ZDUVj8?msource=Appshare2021&utm_source=shop_share&shoptype=10&shopcategoryid=1959&cityid=4&isoversea=0',
+};
 
 let places=[],nextId=1,activeFilter='ROUTE',gmarkers={},activeCard=null;
 let addingMode=false,selectedCat='food',saving=false,map,infoWindow;
@@ -963,7 +967,8 @@ function renderMarkers(){
     const m=mapProvider.createMarker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
     m.addListener('click',()=>{
       const c=CATS[p.cat]||CATS.custom;
-      infoWindow.setContent(`<div class="popup-inner"><div class="popup-cat" style="color:${c.color}">${c.icon} ${c.label}</div><div class="popup-name">${p.name}</div><div class="popup-desc">${p.desc||''}</div></div><div class="popup-actions"><div class="popup-btn" onclick="focusCard(${p.id})">列表中查看</div><div class="popup-btn" onclick="openDianpingPlace('${escapeHtml(p.name)}')">大众点评</div><div class="popup-btn del" onclick="deletePlace(${p.id})">删除</div></div>`);
+      const dianpingAction=hasDianpingUrl(p)?`<div class="popup-btn" onclick="openDianpingPlace(${JSON.stringify(p.name)})">大众点评</div>`:'';
+      infoWindow.setContent(`<div class="popup-inner"><div class="popup-cat" style="color:${c.color}">${c.icon} ${c.label}</div><div class="popup-name">${p.name}</div><div class="popup-desc">${p.desc||''}</div></div><div class="popup-actions"><div class="popup-btn" onclick="focusCard(${p.id})">列表中查看</div>${dianpingAction}<div class="popup-btn del" onclick="deletePlace(${p.id})">删除</div></div>`);
       infoWindow.open(map,m);focusCard(p.id,false);
     });
     gmarkers[p.id]=m;
@@ -984,7 +989,8 @@ function renderCards(){
   empty.style.display='none';
   list.innerHTML=visible.map(p=>{
     const c=CATS[p.cat]||CATS.custom;
-    return`<div class="card ${activeCard===p.id?'active':''}" id="card-${p.id}" onclick="focusCard(${p.id})"><div class="card-bar" style="background:${c.color}"></div><div style="flex:1;min-width:0"><div class="card-name">${p.name}</div><span class="card-tag" style="background:${c.color}22;color:${c.color}">${c.icon} ${c.label}</span>${p.desc?`<div class="card-desc">${p.desc}</div>`:''}<div class="card-actions"><a class="card-link-btn" href="${getDianpingSearchUrl(p.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">大众点评</a></div></div></div>`;
+    const dianpingBtn=buildDianpingButton(p,'card-link-btn','onclick="event.stopPropagation()"');
+    return`<div class="card ${activeCard===p.id?'active':''}" id="card-${p.id}" onclick="focusCard(${p.id})"><div class="card-bar" style="background:${c.color}"></div><div style="flex:1;min-width:0"><div class="card-name">${p.name}</div><span class="card-tag" style="background:${c.color}22;color:${c.color}">${c.icon} ${c.label}</span>${p.desc?`<div class="card-desc">${p.desc}</div>`:''}${dianpingBtn?`<div class="card-actions">${dianpingBtn}</div>`:''}</div></div>`;
   }).join('');
 }
 
@@ -1045,12 +1051,26 @@ function escapeHtml(str=''){
   }[ch]));
 }
 
-function getDianpingSearchUrl(name){
-  return `https://www.dianping.com/search/map/keyword/341/0_${encodeURIComponent(name)}`;
+function getDianpingUrl(placeOrName){
+  if(!placeOrName)return '';
+  if(typeof placeOrName==='string')return DIANPING_URLS[placeOrName]||'';
+  return placeOrName.dianpingUrl||DIANPING_URLS[placeOrName.name]||'';
 }
 
-function openDianpingPlace(name){
-  window.open(getDianpingSearchUrl(name),'_blank','noopener');
+function hasDianpingUrl(placeOrName){
+  return !!getDianpingUrl(placeOrName);
+}
+
+function buildDianpingButton(placeOrName,className,extraAttrs=''){
+  const url=getDianpingUrl(placeOrName);
+  if(!url)return '';
+  return `<a class="${className}" href="${url}" ${extraAttrs}>大众点评</a>`;
+}
+
+function openDianpingPlace(placeOrName){
+  const url=getDianpingUrl(placeOrName);
+  if(!url)return;
+  window.location.href=url;
 }
 
 function getAmapNavUrl(fromStop,toStop,mode='walk'){
@@ -1144,8 +1164,8 @@ function toggleSidebar(){setSidebarCollapsed(!sidebarCollapsed);}
 
 function buildRouteMapCard(route,s,idx){
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
-  const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' '+coord)}`;
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
+  const dianpingBtn=buildDianpingButton(s,'route-map-action','onclick="event.stopPropagation()"');
   return `
     <div class="route-map-card">
       <div class="route-map-cover">
@@ -1160,7 +1180,7 @@ function buildRouteMapCard(route,s,idx){
       </div>
       <div class="route-map-actions">
         <a class="route-map-action primary" href="#" onclick="event.preventDefault();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a>
-        <a class="route-map-action" href="${getDianpingSearchUrl(s.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">大众点评</a>
+        ${dianpingBtn}
         <a class="route-map-action" href="#" onclick="event.preventDefault();openRouteReviews('${route.id}',${idx})">查看评价</a>
       </div>
     </div>`;
@@ -1490,7 +1510,8 @@ function buildRouteMiniCard(route,s,idx,meta={}){
   const img=meta.photo||fallbackImgSvg(s.name);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
   const reviewSnippet=buildRouteReviewSnippet(meta);
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="${getDianpingSearchUrl(s.name)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">大众点评</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
+  const dianpingBtn=buildDianpingButton(s,'route-mini-action','onclick="event.stopPropagation()"');
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a>${dianpingBtn}<a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
 }
 function openRoutePlaceCard(route,s,idx){
   const el=document.getElementById('route-place-overlay');
