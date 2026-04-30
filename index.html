@@ -701,20 +701,32 @@ function escapeHtml(str=''){
   }[ch]));
 }
 
-function getAmapNavUrl(s,mode='walk'){
-  const lng=Number(s.lng).toFixed(6);
-  const lat=Number(s.lat).toFixed(6);
-  const name=encodeURIComponent(s.name||'目的地');
+function getAmapNavUrl(fromStop,toStop,mode='walk'){
+  const toLng=Number(toStop.lng).toFixed(6);
+  const toLat=Number(toStop.lat).toFixed(6);
+  const toName=encodeURIComponent(toStop.name||'目的地');
   const navMode=mode==='drive'?'car':'walk';
-  return `https://uri.amap.com/navigation?to=${lng},${lat},${name}&mode=${navMode}&coordinate=wgs84&callnative=1&src=mytourmap`;
+  if(fromStop){
+    const fromLng=Number(fromStop.lng).toFixed(6);
+    const fromLat=Number(fromStop.lat).toFixed(6);
+    const fromName=encodeURIComponent(fromStop.name||'起点');
+    return `https://uri.amap.com/navigation?from=${fromLng},${fromLat},${fromName}&to=${toLng},${toLat},${toName}&mode=${navMode}&coordinate=wgs84&callnative=1&src=mytourmap`;
+  }
+  return `https://uri.amap.com/navigation?to=${toLng},${toLat},${toName}&mode=${navMode}&coordinate=wgs84&callnative=1&src=mytourmap`;
 }
 
-function getAmapSchemeUrl(s,mode='walk'){
-  const lng=Number(s.lng).toFixed(6);
-  const lat=Number(s.lat).toFixed(6);
-  const name=encodeURIComponent(s.name||'目的地');
+function getAmapSchemeUrl(fromStop,toStop,mode='walk'){
+  const toLng=Number(toStop.lng).toFixed(6);
+  const toLat=Number(toStop.lat).toFixed(6);
+  const toName=encodeURIComponent(toStop.name||'目的地');
   const travelType=mode==='drive'?'0':'2';
-  return `amapuri://route/plan/?sourceApplication=mytourmap&dlat=${lat}&dlon=${lng}&dname=${name}&dev=0&t=${travelType}`;
+  if(fromStop){
+    const fromLng=Number(fromStop.lng).toFixed(6);
+    const fromLat=Number(fromStop.lat).toFixed(6);
+    const fromName=encodeURIComponent(fromStop.name||'起点');
+    return `amapuri://route/plan/?sourceApplication=mytourmap&slat=${fromLat}&slon=${fromLng}&sname=${fromName}&dlat=${toLat}&dlon=${toLng}&dname=${toName}&dev=0&t=${travelType}`;
+  }
+  return `amapuri://route/plan/?sourceApplication=mytourmap&dlat=${toLat}&dlon=${toLng}&dname=${toName}&dev=0&t=${travelType}`;
 }
 
 function isIosSafari(){
@@ -726,10 +738,11 @@ function isIosSafari(){
 
 function openAmapNavigation(routeId,idx,mode='walk'){
   const route=ROUTES.find(r=>r.id===routeId);
-  const stop=route?.stops?.[idx];
-  if(!stop)return;
-  const schemeUrl=getAmapSchemeUrl(stop,mode);
-  const webUrl=getAmapNavUrl(stop,mode);
+  const toStop=route?.stops?.[idx];
+  if(!toStop)return;
+  const fromStop=idx>0?route.stops[idx-1]:null;
+  const schemeUrl=getAmapSchemeUrl(fromStop,toStop,mode);
+  const webUrl=getAmapNavUrl(fromStop,toStop,mode);
   if(isIosSafari()){
     window.location.href=schemeUrl;
     return;
