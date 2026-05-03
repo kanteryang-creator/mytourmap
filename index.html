@@ -47,6 +47,16 @@ html,body{height:100%;overflow:hidden;background:radial-gradient(circle at top,#
 .card-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .card-link-btn{display:inline-flex;align-items:center;justify-content:center;padding:7px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;text-decoration:none;cursor:pointer}
 .card-link-btn:hover{background:#111;color:#fff;border-color:#111}
+.collection-group-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;margin:8px 4px 10px}
+.collection-card{padding:16px;border-radius:22px;margin-bottom:12px;border:1px solid var(--border);background:linear-gradient(180deg,#fff 0,#fcfcfc 100%);box-shadow:0 8px 24px rgba(17,17,17,.05)}
+.collection-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.collection-card-title{font-size:15px;font-weight:800;color:var(--text);line-height:1.35;letter-spacing:-.02em}
+.collection-card-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
+.collection-card-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.collection-card-chip{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:var(--surface2);font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--border)}
+.collection-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.collection-card-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;text-decoration:none;cursor:pointer}
+.collection-card-btn.primary{background:#111;color:#fff;border-color:#111}
 
 /* Route panel */
 #route-panel{flex:1;overflow-y:auto;display:none;flex-direction:column}
@@ -410,7 +420,7 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
           <div class="route-list" id="route-cards"></div>
         </div>
         <div id="route-detail-view" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-          <div class="back-btn" onclick="backToRouteList()">← 返回路线列表</div>
+          <div class="back-btn" id="detail-back-btn" onclick="backToRouteList()">← 返回路线列表</div>
           <div style="flex:1;overflow-y:auto;padding:8px" id="route-stops-list"></div>
         </div>
       </div>
@@ -444,6 +454,7 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 </div>
 <div id="route-reviews-modal"></div>
 <div id="toast"></div>
+<script src="food-collections.js"></script>
 <script>
 const APP_CONFIG = {
   // Future migrations should only need to swap this id and implement one provider.
@@ -463,6 +474,19 @@ const CATS = {
   scenery:  { label:'城市景观',     icon:'🌆', color:'#5aab9e' },
   custom:   { label:'自定义',       icon:'✦',  color:'#e0c060' },
 };
+
+const FOOD_COLLECTIONS = [
+  {
+    id:'hk-flavor-1',
+    kind:'collection',
+    title:'香港味道一中推荐的餐厅',
+    shortTitle:'香港味道一',
+    desc:'《香港味道一》书中整理出的 58 家经典餐厅、茶室、茶餐厅与大排档。',
+    color:'#e07b54',
+    cat:'food',
+    stops:(window.BOOK_FOOD_COLLECTIONS||[]),
+  }
+];
 
 function routeStop(name, lat, lng, desc, extra={}){
   return {name, lat, lng, desc, ...extra};
@@ -685,11 +709,13 @@ const INIT_PLACES = [
   {id:20,name:'桂林街布料市場',cat:'market',lat:22.3280,lng:114.1580,desc:'傳統廣繡面料、鈕扣絲帶，對手工藝人有高參考價值'},
 ];
 
-let places=[],nextId=1,activeFilter='ROUTE',gmarkers={},activeCard=null;
+let places=[],nextId=1,gmarkers={},activeCard=null;
 let addingMode=false,selectedCat='food',saving=false,map,infoWindow;
 let activeRouteId=null,routeMarkers=[],routePolyline=null,activeStopIdx=null;
+let activeCollectionId=null,collectionMarkers=[],collectionRenderToken=0;
 let sidebarCollapsed=false;
 let placeService=null;
+let geocoder=null;
 let routeCardScrollTimer=null;
 let mapsApiPromise=null;
 let placesLibraryPromise=null;
@@ -697,6 +723,10 @@ let directionsService=null;
 let routeWalkPolylines=[];
 let routeWalkLoadToken=0;
 let activeRouteSegments=[];
+let activeLayers=new Set(['ROUTE']);
+let focusedLayer='ROUTE';
+let mapsApiKey='';
+let activePlaceOverlayId=null;
 
 const EMPTY_STOP_META = {
   unavailable:true,
@@ -713,6 +743,78 @@ const EMPTY_STOP_META = {
 };
 
 const WALK_ROUTE_CACHE_KEY='mtm_walk_route_cache_v1';
+const COLLECTION_COORD_CACHE_KEY='mtm_collection_coord_cache_v1';
+
+function getFoodCollection(id){
+  return FOOD_COLLECTIONS.find(collection=>collection.id===id)||null;
+}
+
+function getActiveFoodCollection(){
+  return activeCollectionId?getFoodCollection(activeCollectionId):null;
+}
+
+function getCollectionCoordCache(){
+  try{return JSON.parse(localStorage.getItem(COLLECTION_COORD_CACHE_KEY)||'{}')||{};}catch(e){return {};}
+}
+
+function setCollectionCoordCache(cache){
+  try{localStorage.setItem(COLLECTION_COORD_CACHE_KEY,JSON.stringify(cache));}catch(e){}
+}
+
+function getCollectionStopCacheKey(stop){
+  return `${stop.id||stop.name}|${stop.address||''}`;
+}
+
+function getResolvedCollectionStop(stop){
+  if(Number.isFinite(stop?.lat)&&Number.isFinite(stop?.lng))return stop;
+  const cached=getCollectionCoordCache()[getCollectionStopCacheKey(stop)];
+  if(cached&&Number.isFinite(cached.lat)&&Number.isFinite(cached.lng)){
+    return {...stop,lat:cached.lat,lng:cached.lng};
+  }
+  return stop;
+}
+
+function isLayerActive(layer){
+  return activeLayers.has(layer);
+}
+
+function getBasePlaceCats(){
+  return Object.keys(CATS);
+}
+
+function areAllBaseCatsActive(){
+  return getBasePlaceCats().every(cat=>activeLayers.has(cat));
+}
+
+function getVisiblePlaceCats(){
+  const cats=getBasePlaceCats().filter(cat=>activeLayers.has(cat));
+  if(cats.length)return cats;
+  return [];
+}
+
+function getVisiblePlaces(){
+  const cats=getVisiblePlaceCats();
+  if(!cats.length)return [];
+  return places.filter(place=>cats.includes(place.cat));
+}
+
+function syncFilterPills(){
+  document.querySelectorAll('.pill').forEach(el=>{
+    const cat=el.dataset.cat;
+    if(cat==='ALL'){
+      el.classList.toggle('active',areAllBaseCatsActive());
+      return;
+    }
+    el.classList.toggle('active',isLayerActive(cat));
+  });
+}
+
+function pickFallbackFocus(){
+  if(activeLayers.has('ROUTE'))return 'ROUTE';
+  if(activeLayers.has('food'))return 'food';
+  const cat=getBasePlaceCats().find(layer=>activeLayers.has(layer));
+  return cat||'ALL';
+}
 
 function createStopMeta(data={}){
   return {...EMPTY_STOP_META,...data};
@@ -901,6 +1003,7 @@ async function initMap(){
     loadPlaces(),
     source.fetchMapsKey()
   ]);
+  mapsApiKey=key||'';
   await loadMapsApi(key);
   map=mapProvider.createMap(document.getElementById('map'),{
     center:{lat:22.315,lng:114.175},zoom:13,
@@ -930,6 +1033,7 @@ async function initMap(){
     disableDefaultUI:false,zoomControl:true,streetViewControl:false,mapTypeControl:false,fullscreenControl:false,
   });
   infoWindow=mapProvider.createInfoWindow({maxWidth:260});
+  geocoder=window.google?.maps?new google.maps.Geocoder():null;
   if(mapProvider.createDirectionsService){
     directionsService=mapProvider.createDirectionsService();
   }
@@ -940,8 +1044,9 @@ async function initMap(){
     openModal(e.latLng.lat(),e.latLng.lng());
   });
   document.getElementById('loading').classList.add('hidden');
+  syncFilterPills();
   render();
-  if(activeFilter==='ROUTE'&&ROUTES.length){
+  if(isLayerActive('ROUTE')&&ROUTES.length){
     selectRoute(activeRouteId||ROUTES[0].id);
   }
   setSidebarCollapsed(false);
@@ -958,42 +1063,112 @@ function makeMarkerIcon(cat,color){
 }
 
 function renderMarkers(){
+  const token=++collectionRenderToken;
   Object.values(gmarkers).forEach(m=>m.setMap(null));
   gmarkers={};
-  if(activeFilter==='ROUTE')return;
   const mapProvider=getMapProvider();
-  places.filter(p=>activeFilter==='ALL'||p.cat===activeFilter).forEach(p=>{
-    const m=mapProvider.createMarker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
-    m.addListener('click',()=>{
-      const c=CATS[p.cat]||CATS.custom;
-      infoWindow.setContent(`<div class="popup-inner"><div class="popup-cat" style="color:${c.color}">${c.icon} ${c.label}</div><div class="popup-name">${p.name}</div><div class="popup-desc">${p.desc||''}</div></div><div class="popup-actions"><div class="popup-btn" onclick="focusCard(${p.id})">列表中查看</div><div class="popup-btn del" onclick="deletePlace(${p.id})">删除</div></div>`);
-      infoWindow.open(map,m);focusCard(p.id,false);
+  collectionMarkers.forEach(m=>m&&m.setMap(null));
+  collectionMarkers=[];
+  getVisiblePlaces().forEach(p=>{
+      const m=mapProvider.createMarker({position:{lat:p.lat,lng:p.lng},map,icon:makeMarkerIcon(p.cat),title:p.name});
+      m.addListener('click',()=>{
+        openPlaceMarkerCard(p);
+        focusCard(p.id,false);
+      });
+      gmarkers[p.id]=m;
+  });
+  const collection=getActiveFoodCollection();
+  if(!collection)return;
+  collection.stops.forEach(async(stop,idx)=>{
+    const resolved=await resolveCollectionStop(stop);
+    if(token!==collectionRenderToken||!Number.isFinite(resolved?.lat)||!Number.isFinite(resolved?.lng))return;
+    const marker=mapProvider.createMarker({
+      position:{lat:resolved.lat,lng:resolved.lng},
+      map,
+      icon:makeRouteStopIcon(idx+1,collection.color,activeCollectionId===collection.id&&activeStopIdx===idx),
+      title:resolved.name,
+      zIndex:activeCollectionId===collection.id&&activeStopIdx===idx?50:10
     });
-    gmarkers[p.id]=m;
+    marker.addListener('click',()=>showCollectionStop(collection.id,idx,true));
+    collectionMarkers[idx]=marker;
   });
 }
 
 function renderCards(){
-  if(activeFilter==='ROUTE'){renderRoutePanel();return;}
-  const visible=places.filter(p=>activeFilter==='ALL'||p.cat===activeFilter);
+  if(focusedLayer==='ROUTE'){renderRoutePanel();return;}
+  if(focusedLayer==='food'&&activeCollectionId){renderCollectionPanel();return;}
+  const visible=focusedLayer==='ALL'?getVisiblePlaces():places.filter(p=>p.cat===focusedLayer);
   const list=document.getElementById('card-list');
   const empty=document.getElementById('empty');
   document.getElementById('route-panel').classList.remove('visible');
   document.getElementById('card-list').style.display='';
   document.getElementById('empty').style.display='';
-  document.getElementById('sidebar-title').textContent='地图标记';
-  document.getElementById('sidebar-count').textContent=`${visible.length} 个地点`;
-  if(visible.length===0){list.innerHTML='';empty.style.display='block';return;}
+  document.getElementById('sidebar-title').textContent=focusedLayer==='food'?'饮食地图':focusedLayer==='ALL'?'地图总览':'地图标记';
+  document.getElementById('sidebar-count').textContent=focusedLayer==='food'?`${visible.length} 个已有地点 · ${FOOD_COLLECTIONS.length} 个专题餐厅集`:`${visible.length} 个地点`;
+  const collectionHtml=focusedLayer==='food'&&FOOD_COLLECTIONS.length?`<div class="collection-group-title">专题餐厅图层</div>${FOOD_COLLECTIONS.map(renderCollectionEntry).join('')}`:'';
+  if(visible.length===0&&!collectionHtml){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
-  list.innerHTML=visible.map(p=>{
+  list.innerHTML=collectionHtml+visible.map(p=>{
     const c=CATS[p.cat]||CATS.custom;
     return`<div class="card ${activeCard===p.id?'active':''}" id="card-${p.id}" onclick="focusCard(${p.id})"><div class="card-bar" style="background:${c.color}"></div><div style="flex:1;min-width:0"><div class="card-name">${p.name}</div><span class="card-tag" style="background:${c.color}22;color:${c.color}">${c.icon} ${c.label}</span>${p.desc?`<div class="card-desc">${p.desc}</div>`:''}</div></div>`;
   }).join('');
 }
 
+function renderCollectionEntry(collection){
+  const isActive=activeCollectionId===collection.id;
+  return `<div class="collection-card">
+    <div class="collection-card-head">
+      <div>
+        <div class="collection-card-title">${escapeHtml(collection.title)}</div>
+        <div class="collection-card-desc">${escapeHtml(collection.desc)}</div>
+      </div>
+      <span class="collection-card-chip">${collection.stops.length} 家</span>
+    </div>
+    <div class="collection-card-meta">
+      <span class="collection-card-chip">可与推荐路线叠加显示</span>
+      <span class="collection-card-chip">Google 评价 + 高德导航</span>
+    </div>
+    <div class="collection-card-actions">
+      <button class="collection-card-btn primary" onclick="event.stopPropagation();openFoodCollection('${collection.id}')">${isActive?'继续查看餐厅列表':'打开餐厅列表'}</button>
+      <button class="collection-card-btn" onclick="event.stopPropagation();toggleFoodCollectionOverlay('${collection.id}')">${isActive?'从地图隐藏':'叠加到地图'}</button>
+    </div>
+  </div>`;
+}
+
+function renderCollectionPanel(){
+  const collection=getActiveFoodCollection();
+  if(!collection){
+    renderCards();
+    return;
+  }
+  document.getElementById('card-list').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('route-panel').classList.add('visible');
+  document.getElementById('route-list-view').style.display='none';
+  document.getElementById('route-detail-view').style.display='flex';
+  document.getElementById('sidebar-title').textContent=collection.title;
+  document.getElementById('sidebar-count').textContent=`${collection.stops.length} 家餐厅`;
+  const backBtn=document.getElementById('detail-back-btn');
+  if(backBtn)backBtn.textContent='← 返回饮食列表';
+  document.getElementById('route-stops-list').innerHTML=collection.stops.map((stop,idx)=>`
+    <div class="route-stop ${activeStopIdx===idx?'active-stop':''}" id="cstop-${idx}" onclick="showCollectionStop('${collection.id}',${idx},true)">
+      <div class="route-stop-num" style="background:${collection.color}">${idx+1}</div>
+      <div>
+        <div class="route-stop-name">${escapeHtml(stop.name)}</div>
+        <div class="route-stop-desc">${escapeHtml(stop.cuisine||stop.desc||'')}</div>
+        <div class="route-stop-desc">${escapeHtml(stop.address||'')}</div>
+      </div>
+    </div>`).join('');
+  if(isMobileLayout())setSidebarCollapsed(true);
+  renderCollectionCardStrip(collection);
+  if(!isMobileLayout())showCollectionStop(collection.id,activeStopIdx??0,false);
+}
+
 // ── Route Panel ──
 function renderRoutePanel(){
   const mobile=isMobileLayout();
+  const backBtn=document.getElementById('detail-back-btn');
+  if(backBtn)backBtn.textContent='← 返回路线列表';
   document.getElementById('card-list').style.display='none';
   document.getElementById('empty').style.display='none';
   document.getElementById('route-panel').classList.add('visible');
@@ -1112,12 +1287,83 @@ function openAmapNavigation(routeId,idx,mode='walk'){
   window.location.href=schemeUrl;
 }
 
+async function getResolvedCollectionStops(collection){
+  return Promise.all(collection.stops.map(resolveCollectionStop));
+}
+
+async function openCollectionAmapNavigation(collectionId,idx,mode='walk'){
+  const collection=getFoodCollection(collectionId);
+  if(!collection?.stops?.[idx])return;
+  const resolvedStops=await getResolvedCollectionStops(collection);
+  const toStop=resolvedStops[idx];
+  if(!Number.isFinite(toStop?.lat)||!Number.isFinite(toStop?.lng)){
+    toast('这个地点暂时还没拿到可导航坐标','error');
+    return;
+  }
+  const fromStop=null;
+  const schemeUrl=getAmapSchemeUrl(fromStop,toStop,mode);
+  const webUrl=getAmapNavUrl(fromStop,toStop,mode);
+  if(isIosSafari()){
+    window.location.href=schemeUrl;
+    return;
+  }
+  const startedAt=Date.now();
+  const fallbackTimer=setTimeout(()=>{
+    if(document.visibilityState==='visible'&&Date.now()-startedAt<1800){
+      window.location.replace(webUrl);
+    }
+  },900);
+  const clearFallback=()=>{
+    clearTimeout(fallbackTimer);
+    document.removeEventListener('visibilitychange',clearFallback);
+    window.removeEventListener('pagehide',clearFallback);
+    window.removeEventListener('blur',clearFallback);
+  };
+  document.addEventListener('visibilitychange',clearFallback,{once:true});
+  window.addEventListener('pagehide',clearFallback,{once:true});
+  window.addEventListener('blur',clearFallback,{once:true});
+  window.location.href=schemeUrl;
+}
+
+function openPlaceAmapNavigation(placeId,mode='walk'){
+  const place=places.find(item=>item.id===placeId);
+  if(!place||!Number.isFinite(place.lat)||!Number.isFinite(place.lng)){
+    toast('这个地点暂时还没拿到可导航坐标','error');
+    return;
+  }
+  const schemeUrl=getAmapSchemeUrl(null,place,mode);
+  const webUrl=getAmapNavUrl(null,place,mode);
+  if(isIosSafari()){
+    window.location.href=schemeUrl;
+    return;
+  }
+  const startedAt=Date.now();
+  const fallbackTimer=setTimeout(()=>{
+    if(document.visibilityState==='visible'&&Date.now()-startedAt<1800){
+      window.location.replace(webUrl);
+    }
+  },900);
+  const clearFallback=()=>{
+    clearTimeout(fallbackTimer);
+    document.removeEventListener('visibilitychange',clearFallback);
+    window.removeEventListener('pagehide',clearFallback);
+    window.removeEventListener('blur',clearFallback);
+  };
+  document.addEventListener('visibilitychange',clearFallback,{once:true});
+  window.addEventListener('pagehide',clearFallback,{once:true});
+  window.addEventListener('blur',clearFallback,{once:true});
+  window.location.href=schemeUrl;
+}
+
 function isMobileLayout(){return window.matchMedia('(max-width:720px)').matches;}
 function shouldUseMobileRouteCards(){return isMobileLayout();}
 
 function getMapPadding(){
   if(isMobileLayout()){
-    if(activeFilter==='ROUTE'&&activeRouteId){
+    if(isLayerActive('ROUTE')&&activeRouteId&&focusedLayer==='ROUTE'){
+      return sidebarCollapsed?{top:70,bottom:132,left:28,right:28}:{top:70,bottom:298,left:28,right:28};
+    }
+    if(activeCollectionId&&focusedLayer==='food'){
       return sidebarCollapsed?{top:70,bottom:132,left:28,right:28}:{top:70,bottom:298,left:28,right:28};
     }
     return sidebarCollapsed?{top:70,bottom:86,left:34,right:34}:{top:70,bottom:280,left:34,right:34};
@@ -1160,8 +1406,14 @@ function buildRouteMapCard(route,s,idx){
 }
 
 function backToRouteList(){
-  clearRoute();
-  activeRouteId=null;activeStopIdx=null;
+  activeStopIdx=null;
+  if(focusedLayer==='food'){
+    activeCollectionId=null;
+    closeRoutePlaceCard();
+    infoWindow.close();
+    render();
+    return;
+  }
   document.getElementById('route-list-view').style.display='';
   document.getElementById('route-detail-view').style.display='none';
   document.getElementById('sidebar-title').textContent='推荐路线';
@@ -1172,10 +1424,57 @@ function backToRouteList(){
 function render(){renderMarkers();renderCards();}
 
 function setFilter(cat){
-  activeFilter=cat;
-  document.querySelectorAll('.pill').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
-  activeCard=null;infoWindow?.close();closeRoutePlaceCard();
-  if(cat!=='ROUTE'){clearRoute();activeRouteId=null;}
+  activeCard=null;
+  infoWindow?.close();
+  if(cat==='ALL'){
+    const enable=!areAllBaseCatsActive();
+    getBasePlaceCats().forEach(layer=>{
+      if(enable)activeLayers.add(layer);
+      else activeLayers.delete(layer);
+    });
+    focusedLayer='ALL';
+    activeCollectionId=null;
+    activeStopIdx=null;
+    closeRoutePlaceCard();
+    syncFilterPills();
+    render();
+    return;
+  }
+  if(isLayerActive(cat)&&focusedLayer!==cat){
+    focusedLayer=cat;
+    syncFilterPills();
+    render();
+    if(cat==='ROUTE'&&activeRouteId)showRouteStop(activeRouteId,activeStopIdx??0,false);
+    if(cat==='food'&&activeCollectionId)showCollectionStop(activeCollectionId,activeStopIdx??0,false);
+    return;
+  }
+  const nextActive=!isLayerActive(cat);
+  if(nextActive)activeLayers.add(cat);
+  else activeLayers.delete(cat);
+  focusedLayer=nextActive?cat:pickFallbackFocus();
+  if(cat==='ROUTE'){
+    activeCollectionId=null;
+    if(nextActive&&ROUTES.length){
+      syncFilterPills();
+      render();
+      if(!activeRouteId)selectRoute(ROUTES[0].id);
+      else selectRoute(activeRouteId);
+      return;
+    }
+    if(!nextActive){
+      clearRoute();
+      activeRouteId=null;
+      activeStopIdx=null;
+    }
+  }else if(cat==='food'&&!nextActive){
+    activeCollectionId=null;
+    activeStopIdx=null;
+    closeRoutePlaceCard();
+  }else if(cat!=='food'){
+    activeCollectionId=null;
+    activeStopIdx=null;
+  }
+  syncFilterPills();
   render();
 }
 
@@ -1226,7 +1525,10 @@ async function savePoint(){
   const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='保存中…';
   const p={id:nextId++,name,cat:selectedCat,lat,lng,desc:document.getElementById('f-desc').value.trim()};
   places.push(p);closeModal();
-  if(activeFilter!=='ALL'&&activeFilter!==p.cat)setFilter(p.cat);else render();
+  activeLayers.add(p.cat);
+  focusedLayer=p.cat;
+  syncFilterPills();
+  render();
   setTimeout(()=>focusCard(p.id),100);
   await savePlaces();
   saving=false;btn.disabled=false;btn.textContent='保存';
@@ -1251,7 +1553,7 @@ function exitAddingMode(){
 
 
 window.addEventListener('resize',()=>{
-  if(activeRouteId){
+  if(activeRouteId&&isLayerActive('ROUTE')){
     const mapProvider=getMapProvider();
     const route=ROUTES.find(r=>r.id===activeRouteId);
     if(route&&map){
@@ -1261,6 +1563,10 @@ window.addEventListener('resize',()=>{
       mapProvider.fitBounds(map,bounds,getMapPadding());
     }
   }
+  if(activeCollectionId&&focusedLayer==='food'){
+    const collection=getActiveFoodCollection();
+    if(collection&&shouldUseMobileRouteCards())renderCollectionCardStrip(collection);
+  }
 });
 
 
@@ -1269,11 +1575,23 @@ window.addEventListener('resize',()=>{
 const PLACE_CACHE_KEY='mtm_places_photo_cache_v5';
 function getPlaceCache(){try{return JSON.parse(localStorage.getItem(PLACE_CACHE_KEY)||'{}')||{};}catch(e){return {};}}
 function setPlaceCache(cache){try{localStorage.setItem(PLACE_CACHE_KEY,JSON.stringify(cache));}catch(e){}}
-function routeStopCacheKey(s){return `${s.name}|${Number(s.lat).toFixed(4)}|${Number(s.lng).toFixed(4)}`;}
+function routeStopCacheKey(s){
+  const lat=Number.isFinite(s?.lat)?Number(s.lat).toFixed(4):'na';
+  const lng=Number.isFinite(s?.lng)?Number(s.lng).toFixed(4):'na';
+  return `${s.name}|${lat}|${lng}|${s.address||''}`;
+}
 function fallbackImgSvg(label){
   const safe=escapeHtml(String(label||'HK')).slice(0,8);
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160" viewBox="0 0 240 160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d8c09b"/><stop offset=".55" stop-color="#8fa17a"/><stop offset="1" stop-color="#55706b"/></linearGradient></defs><rect width="240" height="160" fill="url(#g)"/><circle cx="188" cy="40" r="38" fill="rgba(255,255,255,.18)"/><path d="M0 124 C45 104 75 112 112 94 C154 73 190 89 240 58 L240 160 L0 160 Z" fill="rgba(0,0,0,.22)"/><text x="18" y="136" font-size="22" font-weight="700" font-family="Arial" fill="rgba(255,255,255,.92)">${safe}</text></svg>`;
   return 'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg);
+}
+function getStaticMapImage(stop){
+  if(!mapsApiKey||!Number.isFinite(stop?.lat)||!Number.isFinite(stop?.lng))return '';
+  const marker=`color:0x111111|label:•|${stop.lat},${stop.lng}`;
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${stop.lat},${stop.lng}&zoom=17&size=420x280&scale=2&markers=${encodeURIComponent(marker)}&key=${encodeURIComponent(mapsApiKey)}`;
+}
+function getStopCardImage(stop,meta={}){
+  return meta.photo||getStaticMapImage(stop)||fallbackImgSvg(stop.name);
 }
 function findPlaceFromQueryPromise(request){
   const mapProvider=getMapProvider();
@@ -1308,20 +1626,35 @@ async function fetchGoogleStopMeta(s){
   if(cache[key]&&cache[key].ts&&now-cache[key].ts<1000*60*60*24*14){return cache[key];}
   const service=await ensurePlacesLibrary();
   if(!service||!google.maps.places){return null;}
-  const queryFields=['place_id','name','photos','rating','user_ratings_total','formatted_address','types'];
-  const queryVariants=[`${s.name} 香港`,`${s.name} Hong Kong`,s.name];
+  const queryFields=['place_id','name','photos','rating','user_ratings_total','formatted_address','types','geometry'];
+  const hasCoords=Number.isFinite(s?.lat)&&Number.isFinite(s?.lng);
+  const addressQuery=s.address?`${s.name} ${s.address}`:'';
+  const queryVariants=[addressQuery,`${s.name} 香港`,`${s.name} Hong Kong`,s.name].filter(Boolean);
   let place=null;
   for(const query of queryVariants){
-    place=await findPlaceFromQueryPromise({query,fields:queryFields,locationBias:mapProvider.createLatLng(s.lat,s.lng)});
+    const request={query,fields:queryFields};
+    if(hasCoords)request.locationBias=mapProvider.createLatLng(s.lat,s.lng);
+    place=await findPlaceFromQueryPromise(request);
     if(place)break;
   }
-  if(!place)place=await nearbySearchPromise({location:mapProvider.createLatLng(s.lat,s.lng),radius:180,keyword:s.name});
+  if(!place&&hasCoords)place=await nearbySearchPromise({location:mapProvider.createLatLng(s.lat,s.lng),radius:180,keyword:s.name});
   if(!place){
     const fallbackMeta=createStopMeta({ts:now});
     cache[key]=fallbackMeta;setPlaceCache(cache);return fallbackMeta;
   }
   const photo=place.photos&&place.photos[0]?place.photos[0].getUrl({maxWidth:420,maxHeight:280}):'';
-  const baseMeta=createStopMeta({ts:now,placeId:place.place_id||'',googleName:place.name||'',photo,rating:place.rating||'',ratingTotal:place.user_ratings_total||'',address:place.formatted_address||place.vicinity||'',type:(place.types&&place.types[0])?String(place.types[0]).replace(/_/g,' '):''});
+  const baseMeta=createStopMeta({
+    ts:now,
+    placeId:place.place_id||'',
+    googleName:place.name||'',
+    photo,
+    rating:place.rating||'',
+    ratingTotal:place.user_ratings_total||'',
+    address:place.formatted_address||place.vicinity||s.address||'',
+    type:(place.types&&place.types[0])?String(place.types[0]).replace(/_/g,' '):'',
+    lat:place.geometry?.location?.lat?place.geometry.location.lat():'',
+    lng:place.geometry?.location?.lng?place.geometry.location.lng():'',
+  });
   if(!place.place_id){cache[key]=baseMeta;setPlaceCache(cache);return baseMeta;}
   const details=await getPlaceDetailsPromise(place.place_id);
   if(details){
@@ -1340,6 +1673,38 @@ async function fetchPlaceMetaForStop(s){
     console.warn('Stop meta fetch failed',e);
     return createStopMeta();
   }
+}
+
+async function resolveCollectionStop(stop){
+  const resolved=getResolvedCollectionStop(stop);
+  if(Number.isFinite(resolved?.lat)&&Number.isFinite(resolved?.lng))return resolved;
+  const meta=await fetchPlaceMetaForStop(stop);
+  const metaCoords=(meta&&Number.isFinite(meta.lat)&&Number.isFinite(meta.lng))?meta:null;
+  if(metaCoords){
+    const next={...stop,lat:meta.lat,lng:meta.lng};
+    const cache=getCollectionCoordCache();
+    cache[getCollectionStopCacheKey(stop)]={lat:meta.lat,lng:meta.lng,ts:Date.now()};
+    setCollectionCoordCache(cache);
+    return next;
+  }
+  if(!geocoder)return stop;
+  const address=[stop.name,stop.address].filter(Boolean).join(' ');
+  const next=await new Promise(resolve=>{
+    geocoder.geocode({address},(results,status)=>{
+      if(status==='OK'&&results?.[0]?.geometry?.location){
+        const loc=results[0].geometry.location;
+        resolve({...stop,lat:loc.lat(),lng:loc.lng()});
+        return;
+      }
+      resolve(stop);
+    });
+  });
+  if(Number.isFinite(next?.lat)&&Number.isFinite(next?.lng)){
+    const cache=getCollectionCoordCache();
+    cache[getCollectionStopCacheKey(stop)]={lat:next.lat,lng:next.lng,ts:Date.now()};
+    setCollectionCoordCache(cache);
+  }
+  return next;
 }
 function handleRouteImgError(imgEl){
   if(!imgEl||imgEl.dataset.fallbackApplied==='1')return;
@@ -1370,6 +1735,29 @@ async function openRouteReviews(routeId,idx){
   modal.classList.add('open');
   const meta=await fetchPlaceMetaForStop(stop);
   modal.innerHTML=renderRouteReviewsModal(stop.name,meta||{});
+}
+
+async function openCollectionReviews(collectionId,idx){
+  const source=getDataSource();
+  const collection=getFoodCollection(collectionId);
+  const stop=collection?.stops?.[idx];
+  const modal=document.getElementById('route-reviews-modal');
+  if(!stop||!modal)return;
+  modal.innerHTML=`<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(stop.name)}</div><div class="route-reviews-sub">${escapeHtml(source.reviewLoadingText)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list"><div class="route-reviews-empty">${escapeHtml(source.reviewFetchingText)}</div></div></div>`;
+  modal.classList.add('open');
+  const resolved=await resolveCollectionStop(stop);
+  const meta=await fetchPlaceMetaForStop(resolved);
+  modal.innerHTML=renderRouteReviewsModal(stop.name,meta||{});
+}
+async function openPlaceReviews(placeId){
+  const source=getDataSource();
+  const place=places.find(item=>item.id===placeId);
+  const modal=document.getElementById('route-reviews-modal');
+  if(!place||!modal)return;
+  modal.innerHTML=`<div class="route-reviews-sheet"><div class="route-reviews-handle"></div><div class="route-reviews-head"><div><div class="route-reviews-title">${escapeHtml(place.name)}</div><div class="route-reviews-sub">${escapeHtml(source.reviewLoadingText)}</div></div><button class="route-reviews-close" onclick="closeRouteReviews()">关闭</button></div><div class="route-reviews-list"><div class="route-reviews-empty">${escapeHtml(source.reviewFetchingText)}</div></div></div>`;
+  modal.classList.add('open');
+  const meta=await fetchPlaceMetaForStop(place);
+  modal.innerHTML=renderRouteReviewsModal(place.name,meta||{});
 }
 function closeRouteReviews(){
   const modal=document.getElementById('route-reviews-modal');
@@ -1481,15 +1869,95 @@ function buildRouteMiniCard(route,s,idx,meta={}){
   const source=getDataSource();
   const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
-  const img=meta.photo||fallbackImgSvg(s.name);
+  const img=getStopCardImage(s,meta);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
   const reviewSnippet=buildRouteReviewSnippet(meta);
   return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
+}
+function buildCollectionMiniCard(collection,s,idx,meta={}){
+  const source=getDataSource();
+  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
+  const img=getStopCardImage(s,meta);
+  const reviewSnippet=buildRouteReviewSnippet(meta);
+  const note=[s.cuisine,s.address].filter(Boolean).join(' · ');
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="collection-mini-${idx}" data-stop-idx="${idx}" onclick="showCollectionStop('${collection.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(collection.shortTitle)} · 第 ${idx+1} 家</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(note||s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionAmapNavigation('${collection.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionReviews('${collection.id}',${idx})">查看评价</a></div></div></div>`;
+}
+function buildPlaceMiniCard(place,meta={}){
+  const source=getDataSource();
+  const c=CATS[place.cat]||CATS.custom;
+  const img=getStopCardImage(place,meta);
+  const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
+  const reviewSnippet=buildRouteReviewSnippet(meta);
+  return `<div class="route-mini-card active" id="place-mini-${place.id}"><img class="route-mini-img" src="${img}" alt="${escapeHtml(place.name)}" loading="lazy" data-place-name="${escapeHtml(place.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(c.label)} · 地图点位</div><div class="route-mini-name">${escapeHtml(place.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(place.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceAmapNavigation(${place.id},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceReviews(${place.id})">查看评价</a></div></div></div>`;
+}
+
+function buildCollectionMapCard(collection,s,idx){
+  const coord=Number.isFinite(s.lat)&&Number.isFinite(s.lng)?`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`:'等待定位';
+  return `
+    <div class="route-map-card">
+      <div class="route-map-cover">
+        <button class="route-map-close" onclick="closeRoutePlaceCard()">×</button>
+        <div class="route-map-badge">第 ${idx+1} 家</div>
+      </div>
+      <div class="route-map-body">
+        <div class="route-map-kicker">${escapeHtml(collection.title)} · ${idx+1}/${collection.stops.length}</div>
+        <div class="route-map-name">${escapeHtml(s.name)}</div>
+        <div class="route-map-meta">📍 ${escapeHtml(coord)}<br>${escapeHtml(s.address||'地址待补充')}</div>
+        <div class="route-map-note"><span class="route-map-note-title">${escapeHtml(s.source||collection.shortTitle)}</span>${escapeHtml(s.desc||s.cuisine||'暂无备注')}</div>
+      </div>
+      <div class="route-map-actions">
+        <a class="route-map-action primary" href="#" onclick="event.preventDefault();openCollectionAmapNavigation('${collection.id}',${idx},'walk')">高德导航</a>
+        <a class="route-map-action" href="#" onclick="event.preventDefault();openCollectionReviews('${collection.id}',${idx})">查看评价</a>
+      </div>
+    </div>`;
+}
+function buildPlaceMapCard(place,meta={}){
+  const c=CATS[place.cat]||CATS.custom;
+  const coord=`${Number(place.lat).toFixed(5)}, ${Number(place.lng).toFixed(5)}`;
+  const note=meta.reviewText||place.desc||'暂无备注';
+  return `
+    <div class="route-map-card">
+      <div class="route-map-cover">
+        <button class="route-map-close" onclick="closeRoutePlaceCard()">×</button>
+        <div class="route-map-badge">${escapeHtml(c.label)}</div>
+      </div>
+      <div class="route-map-body">
+        <div class="route-map-kicker">${escapeHtml(c.icon)} ${escapeHtml(c.label)} · 地图点位</div>
+        <div class="route-map-name">${escapeHtml(place.name)}</div>
+        <div class="route-map-meta">📍 ${coord}<br>${escapeHtml(meta.address||place.address||'地图已保存坐标')}</div>
+        <div class="route-map-note"><span class="route-map-note-title">Notes from My Tour Map</span>${escapeHtml(note)}</div>
+      </div>
+      <div class="route-map-actions">
+        <a class="route-map-action primary" href="#" onclick="event.preventDefault();openPlaceAmapNavigation(${place.id},'walk')">高德导航</a>
+        <a class="route-map-action" href="#" onclick="event.preventDefault();openPlaceReviews(${place.id})">查看评价</a>
+      </div>
+    </div>`;
 }
 function openRoutePlaceCard(route,s,idx){
   const el=document.getElementById('route-place-overlay');
   if(!el)return;
   el.innerHTML=buildRouteMapCard(route,s,idx);
+  el.classList.add('open');
+}
+async function openPlaceMarkerCard(place){
+  activePlaceOverlayId=place.id;
+  closeRoutePlaceCard();
+  const el=document.getElementById('route-place-overlay');
+  if(!el)return;
+  if(shouldUseMobileRouteCards()){
+    el.innerHTML=`<div class="route-card-track" id="route-card-track">${buildPlaceMiniCard(place)}</div>`;
+    el.classList.add('open');
+  }else{
+    el.innerHTML=buildPlaceMapCard(place,{});
+    el.classList.add('open');
+  }
+  const meta=await fetchPlaceMetaForStop(place);
+  if(activePlaceOverlayId!==place.id)return;
+  if(shouldUseMobileRouteCards()){
+    el.innerHTML=`<div class="route-card-track" id="route-card-track">${buildPlaceMiniCard(place,meta||{})}</div>`;
+  }else{
+    el.innerHTML=buildPlaceMapCard(place,meta||{});
+  }
   el.classList.add('open');
 }
 function renderRouteCardStrip(route){
@@ -1507,6 +1975,18 @@ async function hydrateRouteCards(route){
     const old=document.getElementById(`route-mini-${i}`);if(old){const wrapper=document.createElement('div');wrapper.innerHTML=buildRouteMiniCard(route,route.stops[i],i,meta).trim();old.replaceWith(wrapper.firstElementChild);}
   }
 }
+async function hydrateCollectionCards(collection){
+  for(let i=0;i<collection.stops.length;i++){
+    const resolved=await resolveCollectionStop(collection.stops[i]);
+    const meta=await fetchPlaceMetaForStop(resolved);
+    const old=document.getElementById(`collection-mini-${i}`);
+    if(old){
+      const wrapper=document.createElement('div');
+      wrapper.innerHTML=buildCollectionMiniCard(collection,resolved,i,meta).trim();
+      old.replaceWith(wrapper.firstElementChild);
+    }
+  }
+}
 function syncRouteCardFromScroll(routeId){
   const track=document.getElementById('route-card-track');if(!track)return;const cards=[...track.querySelectorAll('.route-mini-card')];const center=track.scrollLeft+track.clientWidth/2;let best=0,bestDist=Infinity;
   cards.forEach(card=>{const c=card.offsetLeft+card.offsetWidth/2;const d=Math.abs(c-center);if(d<bestDist){bestDist=d;best=Number(card.dataset.stopIdx)||0;}});
@@ -1514,14 +1994,78 @@ function syncRouteCardFromScroll(routeId){
 }
 function updateRouteCardActive(idx,scrollToCard=true){document.querySelectorAll('.route-mini-card').forEach(card=>card.classList.toggle('active',Number(card.dataset.stopIdx)===idx));if(scrollToCard){document.getElementById(`route-mini-${idx}`)?.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});}}
 function updateRouteMarkerActive(route,idx){routeMarkers.forEach((m,i)=>{m.setIcon(makeRouteStopIcon(i+1,route.color,i===idx));m.setZIndex(i===idx?50:10);});}
+function syncCollectionCardFromScroll(collectionId){
+  const track=document.getElementById('route-card-track');if(!track)return;const cards=[...track.querySelectorAll('.route-mini-card')];const center=track.scrollLeft+track.clientWidth/2;let best=0,bestDist=Infinity;
+  cards.forEach(card=>{const c=card.offsetLeft+card.offsetWidth/2;const d=Math.abs(c-center);if(d<bestDist){bestDist=d;best=Number(card.dataset.stopIdx)||0;}});
+  if(best!==activeStopIdx)showCollectionStop(collectionId,best,false);
+}
+function updateCollectionCardActive(idx,scrollToCard=true){document.querySelectorAll('.route-mini-card').forEach(card=>card.classList.toggle('active',Number(card.dataset.stopIdx)===idx));if(scrollToCard){document.getElementById(`collection-mini-${idx}`)?.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});}}
+function updateCollectionMarkerActive(collection,idx){collectionMarkers.forEach((marker,i)=>{if(!marker)return;marker.setIcon(makeRouteStopIcon(i+1,collection.color,i===idx));marker.setZIndex(i===idx?50:10);});}
 function makeRouteStopIcon(num,color,active=false){
   const mapProvider=getMapProvider();
   const fill=active?'#111009':color;const ring=active?color:'rgba(0,0,0,0.3)';const scale=active?34:30, anchorX=active?17:15, anchorY=active?40:36;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="44" viewBox="0 0 32 38"><path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 22 16 22s16-10 16-22C32 7.2 24.8 0 16 0z" fill="${fill}" opacity="0.98"/><circle cx="16" cy="16" r="10" fill="${ring}"/><text x="16" y="20.8" text-anchor="middle" font-size="11" font-weight="800" fill="white" font-family="Arial, sans-serif">${num}</text></svg>`;
   return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:mapProvider.createSize(scale,anchorY),anchor:mapProvider.createPoint(anchorX,anchorY)};
 }
+function openFoodCollection(id){
+  activeLayers.add('food');
+  focusedLayer='food';
+  activeCollectionId=id;
+  activeStopIdx=0;
+  syncFilterPills();
+  render();
+}
+function toggleFoodCollectionOverlay(id){
+  if(activeCollectionId===id){
+    activeCollectionId=null;
+    activeStopIdx=null;
+    closeRoutePlaceCard();
+    render();
+    return;
+  }
+  openFoodCollection(id);
+}
+function renderCollectionCardStrip(collection){
+  const el=document.getElementById('route-place-overlay');if(!el||!collection)return;
+  if(!shouldUseMobileRouteCards()){closeRoutePlaceCard();return;}
+  activeStopIdx=activeStopIdx??0;document.body.classList.add('route-card-mode');
+  el.innerHTML=`<div class="route-card-track" id="route-card-track">${collection.stops.map((s,i)=>buildCollectionMiniCard(collection,getResolvedCollectionStop(s),i)).join('')}</div>`;el.classList.add('open');
+  const track=document.getElementById('route-card-track');
+  if(track){track.addEventListener('scroll',()=>{clearTimeout(routeCardScrollTimer);routeCardScrollTimer=setTimeout(()=>syncCollectionCardFromScroll(collection.id),90);},{passive:true});}
+  hydrateCollectionCards(collection);requestAnimationFrame(()=>showCollectionStop(collection.id,activeStopIdx,false));
+}
+async function showCollectionStop(collectionId,idx,scrollCard=true){
+  const collection=getFoodCollection(collectionId);
+  const stop=collection?.stops?.[idx];
+  if(!collection||!stop)return;
+  activeCollectionId=collectionId;
+  focusedLayer='food';
+  activeStopIdx=idx;
+  const resolved=await resolveCollectionStop(stop);
+  if(shouldUseMobileRouteCards()){
+    updateCollectionCardActive(idx,scrollCard);
+  }else{
+    const el=document.getElementById('route-place-overlay');
+    if(el){
+      el.innerHTML=buildCollectionMapCard(collection,resolved,idx);
+      el.classList.add('open');
+    }
+  }
+  updateCollectionCardActive(idx,scrollCard);
+  updateCollectionMarkerActive(collection,idx);
+  if(Number.isFinite(resolved?.lat)&&Number.isFinite(resolved?.lng)){
+    map.panTo({lat:resolved.lat,lng:resolved.lng});
+    const marker=collectionMarkers[idx];
+    if(marker)getMapProvider().bounceMarker(marker);
+    if(map.getZoom()<15)map.setZoom(15);
+  }
+  document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));
+  document.getElementById(`cstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function selectRoute(id){
   const mapProvider=getMapProvider();
+  activeLayers.add('ROUTE');
+  focusedLayer='ROUTE';
   activeRouteId=id;activeStopIdx=0;const route=ROUTES.find(r=>r.id===id);if(!route)return;clearRoute();
   routeWalkLoadToken+=1;
   const currentToken=routeWalkLoadToken;
@@ -1533,13 +2077,14 @@ function selectRoute(id){
 }
 function showRouteStop(routeId,idx,scrollCard=true){
   const mapProvider=getMapProvider();
+  focusedLayer='ROUTE';
   activeStopIdx=idx;activeRouteId=routeId;const route=ROUTES.find(r=>r.id===routeId);if(!route||!route.stops[idx])return;const s=route.stops[idx];
   if(shouldUseMobileRouteCards()){}else openRoutePlaceCard(route,s,idx);
   updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);updateRouteWalkHighlight(idx);map.panTo({lat:s.lat,lng:s.lng});if(routeMarkers[idx])mapProvider.bounceMarker(routeMarkers[idx]);if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeRoutePlaceCard(){const el=document.getElementById('route-place-overlay');if(el){el.classList.remove('open');el.innerHTML='';}document.body.classList.remove('route-card-mode');}
-function clearRoute(){closeRoutePlaceCard();routeWalkLoadToken+=1;clearRouteWalkPolylines();routeMarkers.forEach(m=>m.setMap(null));routeMarkers=[];if(routePolyline){routePolyline.setMap(null);routePolyline=null;}}
+function clearRoute(){activePlaceOverlayId=null;closeRoutePlaceCard();routeWalkLoadToken+=1;clearRouteWalkPolylines();routeMarkers.forEach(m=>m.setMap(null));routeMarkers=[];if(routePolyline){routePolyline.setMap(null);routePolyline=null;}}
 
 
 document.getElementById('modal-bg').addEventListener('click',e=>{if(e.target===document.getElementById('modal-bg'))closeModal();});
