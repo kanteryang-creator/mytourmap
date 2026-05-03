@@ -1480,8 +1480,9 @@ function backToRouteList(){
 }
 function openRouteListMode(){
   focusedLayer='ROUTE';
+  activeRouteId=null;
   activeStopIdx=null;
-  closeRoutePlaceCard();
+  clearRoute();
   renderRoutePanel();
   if(isMobileLayout())setSidebarCollapsed(false);
 }
