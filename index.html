@@ -166,19 +166,7 @@ body.sidebar-collapsed #sidebar{transform:translateX(calc(100% + 12px));}
 body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 #sidebar-header{position:relative;}
 #sidebar-head-toggle{
-  position:absolute;
-  right:10px;
-  top:50%;
-  transform:translateY(-50%);
-  border:1px solid var(--border);
-  background:var(--surface2);
-  color:var(--text);
-  border-radius:999px;
-  padding:8px 12px;
-  font-size:12px;
-  font-weight:700;
-  cursor:pointer;
-  font-family:inherit;
+  display:none;
 }
 
 /* Google Maps-like route place overlay */
@@ -728,6 +716,7 @@ const EMPTY_STOP_META = {
   photo:'',
   rating:'',
   ratingTotal:'',
+  priceLevel:'',
   address:'',
   type:'',
   reviewText:'',
@@ -1630,6 +1619,22 @@ function getStaticMapImage(stop){
 function getStopCardImage(stop,meta={}){
   return meta.photo||getStaticMapImage(stop)||fallbackImgSvg(stop.name);
 }
+function getPriceLevelRange(level){
+  const ranges={
+    0:'HK$1–50',
+    1:'HK$50–100',
+    2:'HK$100–200',
+    3:'HK$200–400',
+    4:'HK$400+',
+  };
+  return ranges[level]||'';
+}
+function formatPriceLevel(meta={}){
+  const level=Number(meta.priceLevel);
+  if(!Number.isFinite(level))return '';
+  const range=getPriceLevelRange(level);
+  return range?`人均参考 ${range}`:'';
+}
 function findPlaceFromQueryPromise(request){
   const mapProvider=getMapProvider();
   return new Promise(resolve=>{
@@ -1651,7 +1656,7 @@ function nearbySearchPromise(request){
 function getPlaceDetailsPromise(placeId){
   const mapProvider=getMapProvider();
   return new Promise(resolve=>{
-    placeService.getDetails({placeId,fields:['reviews','url']},(details,status)=>{
+    placeService.getDetails({placeId,fields:['reviews','url','price_level']},(details,status)=>{
       if(mapProvider.isPlacesStatusOk(status)&&details)resolve(details);
       else resolve(null);
     });
@@ -1663,7 +1668,7 @@ async function fetchGoogleStopMeta(s){
   if(cache[key]&&cache[key].ts&&now-cache[key].ts<1000*60*60*24*14){return cache[key];}
   const service=await ensurePlacesLibrary();
   if(!service||!google.maps.places){return null;}
-  const queryFields=['place_id','name','photos','rating','user_ratings_total','formatted_address','types','geometry'];
+  const queryFields=['place_id','name','photos','rating','user_ratings_total','formatted_address','types','geometry','price_level'];
   const hasCoords=Number.isFinite(s?.lat)&&Number.isFinite(s?.lng);
   const addressQuery=s.address?`${s.name} ${s.address}`:'';
   const queryVariants=[addressQuery,`${s.name} 香港`,`${s.name} Hong Kong`,s.name].filter(Boolean);
@@ -1687,6 +1692,7 @@ async function fetchGoogleStopMeta(s){
     photo,
     rating:place.rating||'',
     ratingTotal:place.user_ratings_total||'',
+    priceLevel:Number.isFinite(place.price_level)?place.price_level:'',
     address:place.formatted_address||place.vicinity||s.address||'',
     type:(place.types&&place.types[0])?String(place.types[0]).replace(/_/g,' '):'',
     lat:place.geometry?.location?.lat?place.geometry.location.lat():'',
@@ -1697,7 +1703,7 @@ async function fetchGoogleStopMeta(s){
   if(details){
     const reviews=Array.isArray(details.reviews)?details.reviews.slice(0,5).map(r=>({author:r.author_name||'Google 用户',ago:r.relative_time_description||'',rating:r.rating||'',text:r.text||''})).filter(r=>r.text):[];
     const firstReview=reviews[0]||null;
-    const meta={...baseMeta,reviewText:firstReview?.text||'',reviewAuthor:firstReview?.author||'',reviewAgo:firstReview?.ago||'',reviewsUri:details.url||'',reviews};
+    const meta={...baseMeta,priceLevel:Number.isFinite(details.price_level)?details.price_level:baseMeta.priceLevel,reviewText:firstReview?.text||'',reviewAuthor:firstReview?.author||'',reviewAgo:firstReview?.ago||'',reviewsUri:details.url||'',reviews};
     cache[key]=meta;setPlaceCache(cache);return meta;
   }
   cache[key]=baseMeta;setPlaceCache(cache);return baseMeta;
@@ -1904,32 +1910,35 @@ async function loadWalkingRouteSegments(route,token){
 }
 function buildRouteMiniCard(route,s,idx,meta={}){
   const source=getDataSource();
-  const coord=`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`;
   const label=idx===0?'起点':idx===route.stops.length-1?'终点':`第 ${idx+1} 站`;
   const img=getStopCardImage(s,meta);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
+  const priceText=formatPriceLevel(meta);
   const reviewSnippet=buildRouteReviewSnippet(meta);
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${priceText?` · ${escapeHtml(priceText)}`:''}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
 }
 function buildCollectionMiniCard(collection,s,idx,meta={}){
   const source=getDataSource();
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
   const img=getStopCardImage(s,meta);
+  const priceText=formatPriceLevel(meta);
   const reviewSnippet=buildRouteReviewSnippet(meta);
   const note=[s.cuisine,s.address].filter(Boolean).join(' · ');
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="collection-mini-${idx}" data-stop-idx="${idx}" onclick="showCollectionStop('${collection.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(collection.shortTitle)} · 第 ${idx+1} 家</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(note||s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionAmapNavigation('${collection.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionReviews('${collection.id}',${idx})">查看评价</a></div></div></div>`;
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="collection-mini-${idx}" data-stop-idx="${idx}" onclick="showCollectionStop('${collection.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(collection.shortTitle)} · 第 ${idx+1} 家</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${priceText?` · ${escapeHtml(priceText)}`:''}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(note||s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionAmapNavigation('${collection.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openCollectionReviews('${collection.id}',${idx})">查看评价</a></div></div></div>`;
 }
 function buildPlaceMiniCard(place,meta={}){
   const source=getDataSource();
   const c=CATS[place.cat]||CATS.custom;
   const img=getStopCardImage(place,meta);
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
+  const priceText=formatPriceLevel(meta);
   const reviewSnippet=buildRouteReviewSnippet(meta);
-  return `<div class="route-mini-card active" id="place-mini-${place.id}"><img class="route-mini-img" src="${img}" alt="${escapeHtml(place.name)}" loading="lazy" data-place-name="${escapeHtml(place.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(c.label)} · 地图点位</div><div class="route-mini-name">${escapeHtml(place.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(place.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceAmapNavigation(${place.id},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceReviews(${place.id})">查看评价</a></div></div></div>`;
+  return `<div class="route-mini-card active" id="place-mini-${place.id}"><img class="route-mini-img" src="${img}" alt="${escapeHtml(place.name)}" loading="lazy" data-place-name="${escapeHtml(place.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${escapeHtml(c.label)} · 地图点位</div><div class="route-mini-name">${escapeHtml(place.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${priceText?` · ${escapeHtml(priceText)}`:''}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(place.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceAmapNavigation(${place.id},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openPlaceReviews(${place.id})">查看评价</a></div></div></div>`;
 }
 
 function buildCollectionMapCard(collection,s,idx){
   const coord=Number.isFinite(s.lat)&&Number.isFinite(s.lng)?`${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`:'等待定位';
+  const priceText=formatPriceLevel(s);
   return `
     <div class="route-map-card">
       <div class="route-map-cover">
@@ -1939,7 +1948,7 @@ function buildCollectionMapCard(collection,s,idx){
       <div class="route-map-body">
         <div class="route-map-kicker">${escapeHtml(collection.title)} · ${idx+1}/${collection.stops.length}</div>
         <div class="route-map-name">${escapeHtml(s.name)}</div>
-        <div class="route-map-meta">📍 ${escapeHtml(coord)}<br>${escapeHtml(s.address||'地址待补充')}</div>
+        <div class="route-map-meta">📍 ${escapeHtml(coord)}<br>${escapeHtml(s.address||'地址待补充')}${priceText?`<br>${escapeHtml(priceText)}`:''}</div>
         <div class="route-map-note"><span class="route-map-note-title">${escapeHtml(s.source||collection.shortTitle)}</span>${escapeHtml(s.desc||s.cuisine||'暂无备注')}</div>
       </div>
       <div class="route-map-actions">
@@ -1952,6 +1961,7 @@ function buildPlaceMapCard(place,meta={}){
   const c=CATS[place.cat]||CATS.custom;
   const coord=`${Number(place.lat).toFixed(5)}, ${Number(place.lng).toFixed(5)}`;
   const note=meta.reviewText||place.desc||'暂无备注';
+  const priceText=formatPriceLevel(meta);
   return `
     <div class="route-map-card">
       <div class="route-map-cover">
@@ -1961,7 +1971,7 @@ function buildPlaceMapCard(place,meta={}){
       <div class="route-map-body">
         <div class="route-map-kicker">${escapeHtml(c.icon)} ${escapeHtml(c.label)} · 地图点位</div>
         <div class="route-map-name">${escapeHtml(place.name)}</div>
-        <div class="route-map-meta">📍 ${coord}<br>${escapeHtml(meta.address||place.address||'地图已保存坐标')}</div>
+        <div class="route-map-meta">📍 ${coord}<br>${escapeHtml(meta.address||place.address||'地图已保存坐标')}${priceText?`<br>${escapeHtml(priceText)}`:''}</div>
         <div class="route-map-note"><span class="route-map-note-title">Notes from My Tour Map</span>${escapeHtml(note)}</div>
       </div>
       <div class="route-map-actions">
@@ -1979,6 +1989,7 @@ function openRoutePlaceCard(route,s,idx){
 async function openPlaceMarkerCard(place){
   activePlaceOverlayId=place.id;
   closeRoutePlaceCard();
+  if(isMobileLayout())setSidebarCollapsed(true);
   const el=document.getElementById('route-place-overlay');
   if(!el)return;
   if(shouldUseMobileRouteCards()){
@@ -2080,6 +2091,7 @@ async function showCollectionStop(collectionId,idx,scrollCard=true,reorder=false
   activeCollectionId=collectionId;
   focusedLayer=collectionId;
   activeStopIdx=idx;
+  if(isMobileLayout())setSidebarCollapsed(true);
   if(reorder){
     ensureCollectionCardOrder(collection,idx,true);
     if(shouldUseMobileRouteCards())renderCollectionCardStrip(collection);
@@ -2123,6 +2135,7 @@ function showRouteStop(routeId,idx,scrollCard=true){
   const mapProvider=getMapProvider();
   focusedLayer='ROUTE';
   activeStopIdx=idx;activeRouteId=routeId;const route=ROUTES.find(r=>r.id===routeId);if(!route||!route.stops[idx])return;const s=route.stops[idx];
+  if(isMobileLayout())setSidebarCollapsed(true);
   if(shouldUseMobileRouteCards()){}else openRoutePlaceCard(route,s,idx);
   updateRouteCardActive(idx,scrollCard);updateRouteMarkerActive(route,idx);updateRouteWalkHighlight(idx);map.panTo({lat:s.lat,lng:s.lng});if(routeMarkers[idx])mapProvider.bounceMarker(routeMarkers[idx]);if(map.getZoom()<15)map.setZoom(15);
   document.querySelectorAll('.route-stop').forEach((el,i)=>el.classList.toggle('active-stop',i===idx));document.getElementById(`rstop-${idx}`)?.scrollIntoView({behavior:'smooth',block:'nearest'});
