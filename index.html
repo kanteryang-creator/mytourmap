@@ -721,6 +721,7 @@ let activeLayers=new Set(['ROUTE']);
 let focusedLayer='ROUTE';
 let mapsApiKey='';
 let activePlaceOverlayId=null;
+let collectionCardOrderIndices=[];
 
 const EMPTY_STOP_META = {
   unavailable:true,
@@ -786,6 +787,53 @@ function getPlacesInCurrentBounds(items){
   const bounds=map.getBounds();
   if(!bounds)return items;
   return items.filter(item=>bounds.contains({lat:item.lat,lng:item.lng}));
+}
+
+function haversineDistance(a,b){
+  if(!Number.isFinite(a?.lat)||!Number.isFinite(a?.lng)||!Number.isFinite(b?.lat)||!Number.isFinite(b?.lng)) return Infinity;
+  const toRad=value=>value*Math.PI/180;
+  const R=6371;
+  const dLat=toRad(b.lat-a.lat);
+  const dLng=toRad(b.lng-a.lng);
+  const lat1=toRad(a.lat);
+  const lat2=toRad(b.lat);
+  const x=Math.sin(dLat/2)**2+Math.sin(dLng/2)**2*Math.cos(lat1)*Math.cos(lat2);
+  return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function buildNearestCollectionOrder(collection,startIdx=0){
+  const indexed=collection.stops.map((stop,idx)=>({idx,stop:getResolvedCollectionStop(stop)}));
+  const unresolved=indexed.filter(item=>!Number.isFinite(item.stop?.lat)||!Number.isFinite(item.stop?.lng)).map(item=>item.idx);
+  const candidates=indexed.filter(item=>Number.isFinite(item.stop?.lat)&&Number.isFinite(item.stop?.lng));
+  if(!candidates.length)return collection.stops.map((_,idx)=>idx);
+  const safeStart=candidates.some(item=>item.idx===startIdx)?startIdx:candidates[0].idx;
+  const visited=new Set([safeStart]);
+  const order=[safeStart];
+  let current=candidates.find(item=>item.idx===safeStart)?.stop;
+  while(order.length<candidates.length){
+    let nextIdx=null;
+    let nextDistance=Infinity;
+    candidates.forEach(item=>{
+      if(visited.has(item.idx))return;
+      const dist=haversineDistance(current,item.stop);
+      if(dist<nextDistance){
+        nextDistance=dist;
+        nextIdx=item.idx;
+      }
+    });
+    if(nextIdx===null)break;
+    visited.add(nextIdx);
+    order.push(nextIdx);
+    current=candidates.find(item=>item.idx===nextIdx)?.stop||current;
+  }
+  return [...order,...unresolved.filter(idx=>!order.includes(idx))];
+}
+
+function ensureCollectionCardOrder(collection,startIdx=0,force=false){
+  if(force||!collectionCardOrderIndices.length||collectionCardOrderIndices[0]!==startIdx){
+    collectionCardOrderIndices=buildNearestCollectionOrder(collection,startIdx);
+  }
+  return collectionCardOrderIndices;
 }
 
 function syncFilterPills(){
@@ -1083,7 +1131,7 @@ function renderMarkers(){
       title:resolved.name,
       zIndex:activeCollectionId===collection.id&&activeStopIdx===idx?50:10
     });
-    marker.addListener('click',()=>showCollectionStop(collection.id,idx,true));
+    marker.addListener('click',()=>showCollectionStop(collection.id,idx,true,true));
     collectionMarkers[idx]=marker;
   });
 }
@@ -1144,15 +1192,19 @@ function renderCollectionPanel(){
   document.getElementById('sidebar-count').textContent=`${collection.stops.length} 家餐厅`;
   const backBtn=document.getElementById('detail-back-btn');
   if(backBtn)backBtn.textContent='← 返回饮食列表';
-  document.getElementById('route-stops-list').innerHTML=collection.stops.map((stop,idx)=>`
-    <div class="route-stop ${activeStopIdx===idx?'active-stop':''}" id="cstop-${idx}" onclick="showCollectionStop('${collection.id}',${idx},true)">
+  const orderedIndices=ensureCollectionCardOrder(collection,activeStopIdx??0);
+  document.getElementById('route-stops-list').innerHTML=orderedIndices.map(idx=>{
+    const stop=collection.stops[idx];
+    return `
+    <div class="route-stop ${activeStopIdx===idx?'active-stop':''}" id="cstop-${idx}" onclick="showCollectionStop('${collection.id}',${idx},true,true)">
       <div class="route-stop-num" style="background:${collection.color}">${idx+1}</div>
       <div>
         <div class="route-stop-name">${escapeHtml(stop.name)}</div>
         <div class="route-stop-desc">${escapeHtml(stop.cuisine||stop.desc||'')}</div>
         <div class="route-stop-desc">${escapeHtml(stop.address||'')}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   if(isMobileLayout())setSidebarCollapsed(true);
   renderCollectionCardStrip(collection);
   if(!isMobileLayout())showCollectionStop(collection.id,activeStopIdx??0,false);
@@ -1997,6 +2049,7 @@ function openFoodCollection(id){
   focusedLayer=id;
   activeCollectionId=id;
   activeStopIdx=0;
+  collectionCardOrderIndices=[];
   syncFilterPills();
   render();
 }
@@ -2014,18 +2067,24 @@ function renderCollectionCardStrip(collection){
   const el=document.getElementById('route-place-overlay');if(!el||!collection)return;
   if(!shouldUseMobileRouteCards()){closeRoutePlaceCard();return;}
   activeStopIdx=activeStopIdx??0;document.body.classList.add('route-card-mode');
-  el.innerHTML=`<div class="route-card-track" id="route-card-track">${collection.stops.map((s,i)=>buildCollectionMiniCard(collection,getResolvedCollectionStop(s),i)).join('')}</div>`;el.classList.add('open');
+  const orderedIndices=ensureCollectionCardOrder(collection,activeStopIdx??0);
+  el.innerHTML=`<div class="route-card-track" id="route-card-track">${orderedIndices.map(idx=>buildCollectionMiniCard(collection,getResolvedCollectionStop(collection.stops[idx]),idx)).join('')}</div>`;el.classList.add('open');
   const track=document.getElementById('route-card-track');
   if(track){track.addEventListener('scroll',()=>{clearTimeout(routeCardScrollTimer);routeCardScrollTimer=setTimeout(()=>syncCollectionCardFromScroll(collection.id),90);},{passive:true});}
   hydrateCollectionCards(collection);requestAnimationFrame(()=>showCollectionStop(collection.id,activeStopIdx,false));
 }
-async function showCollectionStop(collectionId,idx,scrollCard=true){
+async function showCollectionStop(collectionId,idx,scrollCard=true,reorder=false){
   const collection=getFoodCollection(collectionId);
   const stop=collection?.stops?.[idx];
   if(!collection||!stop)return;
   activeCollectionId=collectionId;
   focusedLayer=collectionId;
   activeStopIdx=idx;
+  if(reorder){
+    ensureCollectionCardOrder(collection,idx,true);
+    if(shouldUseMobileRouteCards())renderCollectionCardStrip(collection);
+    else renderCollectionPanel();
+  }
   const resolved=await resolveCollectionStop(stop);
   if(shouldUseMobileRouteCards()){
     updateCollectionCardActive(idx,scrollCard);
