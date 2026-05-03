@@ -330,7 +330,10 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
 .route-mini-card.active{transform:scale(1);opacity:1;box-shadow:0 18px 42px rgba(17,17,17,.18);border-color:#111;}
 .route-mini-img{width:96px;height:80px;border-radius:14px;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,#d8c09b 0%,#8fa17a 48%,#55706b 100%);}
 .route-mini-body{flex:1;min-width:0;}
+.route-mini-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
 .route-mini-kicker{font-size:11px;font-weight:700;color:#5f6368;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.route-mini-head .route-mini-kicker{flex:1;min-width:0;margin-bottom:0;}
+.route-mini-back{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex-shrink:0;border:1px solid #dadce0;border-radius:999px;background:#fff;color:#111;font-size:18px;font-weight:700;line-height:1;text-decoration:none;cursor:pointer;}
 .route-mini-name{font-size:20px;font-weight:800;color:#202124;line-height:1.18;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.03em;}
 .route-mini-meta{font-size:13px;color:#3c4043;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .route-mini-review{margin-top:6px;padding:7px 9px;border-radius:12px;background:#f6f6f7;border:1px solid #ececf0;}
@@ -351,6 +354,7 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
   .route-card-track{padding-left:14px;padding-right:14px;gap:10px;touch-action:pan-x pinch-zoom;overscroll-behavior-x:contain;scroll-padding-left:14px;scroll-padding-right:14px;}
   .route-mini-card{flex-basis:calc(100vw - 54px);min-height:90px;border-radius:16px;padding:10px 11px;}
   .route-mini-img{width:88px;height:68px;border-radius:12px;}
+  .route-mini-back{width:30px;height:30px;font-size:16px;}
   .route-mini-name{font-size:17px;}
   .route-mini-meta{font-size:12px;}
   .route-mini-review{margin-top:5px;padding:6px 8px;}
@@ -1963,7 +1967,7 @@ function buildRouteMiniCard(route,s,idx,meta={}){
   const rating=meta.rating?`${meta.rating} ★${meta.ratingTotal?` (${meta.ratingTotal} 条评价)`:''}`:(meta.unavailable?'图片暂不可用':source.fallbackMetaLabel);
   const priceText=formatPriceLevel(meta,s);
   const reviewSnippet=buildRouteReviewSnippet(meta);
-  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${priceText?` · ${escapeHtml(priceText)}`:''}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
+  return `<div class="route-mini-card ${idx===activeStopIdx?'active':''}" id="route-mini-${idx}" data-stop-idx="${idx}" onclick="showRouteStop('${route.id}',${idx},true)"><img class="route-mini-img" src="${img}" alt="${escapeHtml(s.name)}" loading="lazy" data-place-name="${escapeHtml(s.name)}" onerror="handleRouteImgError(this)"><div class="route-mini-body"><div class="route-mini-head"><div class="route-mini-kicker">${label} · ${escapeHtml(route.title)}</div><button class="route-mini-back" type="button" aria-label="返回推荐路线列表" onclick="event.preventDefault();event.stopPropagation();openRouteListMode()">‹</button></div><div class="route-mini-name">${escapeHtml(s.name)}</div><div class="route-mini-meta">${escapeHtml(rating)}${priceText?` · ${escapeHtml(priceText)}`:''}${meta.type?' · '+escapeHtml(meta.type):''}</div>${reviewSnippet||`<div class="route-mini-note">${escapeHtml(s.desc||'暂无备注')}</div>`}<div class="route-mini-actions"><a class="route-mini-action primary" href="#" onclick="event.preventDefault();event.stopPropagation();openAmapNavigation('${route.id}',${idx},'walk')">高德导航</a><a class="route-mini-action" href="#" onclick="event.preventDefault();event.stopPropagation();openRouteReviews('${route.id}',${idx})">查看评价</a></div></div></div>`;
 }
 function buildCollectionMiniCard(collection,s,idx,meta={}){
   const source=getDataSource();
