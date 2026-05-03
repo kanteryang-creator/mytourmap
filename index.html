@@ -389,15 +389,9 @@ body.sidebar-collapsed #sidebar-float-toggle{right:14px;}
   <div id="topbar">
     <div id="logo">我的香港地图 <span>Personal Field Map · HK</span></div>
     <div id="filters">
-      <div class="pill route-pill active" data-cat="ROUTE" onclick="setFilter('ROUTE')"><span class="dot" style="background:var(--c-route)"></span>推荐路线</div>
-      <div class="pill all-pill" data-cat="ALL" onclick="setFilter('ALL')"><span class="dot" style="background:var(--gold)"></span>全部</div>
-      <div class="pill" data-cat="food" onclick="setFilter('food')"><span class="dot" style="background:var(--c-food)"></span>饮食</div>
-      <div class="pill" data-cat="cafe" onclick="setFilter('cafe')"><span class="dot" style="background:var(--c-cafe)"></span>咖啡·生活方式</div>
-      <div class="pill" data-cat="market" onclick="setFilter('market')"><span class="dot" style="background:var(--c-market)"></span>市场·街市</div>
-      <div class="pill" data-cat="heritage" onclick="setFilter('heritage')"><span class="dot" style="background:var(--c-heritage)"></span>旧建筑·文化</div>
-      <div class="pill" data-cat="gallery" onclick="setFilter('gallery')"><span class="dot" style="background:var(--c-gallery)"></span>展览·画廊</div>
-      <div class="pill" data-cat="vintage" onclick="setFilter('vintage')"><span class="dot" style="background:var(--c-vintage)"></span>古着·杂货</div>
-      <div class="pill" data-cat="scenery" onclick="setFilter('scenery')"><span class="dot" style="background:var(--c-scenery)"></span>城市景观</div>
+      <div class="pill route-pill active" data-cat="ROUTE" onclick="setFilter('ROUTE')"><span class="dot" style="background:var(--c-route)"></span>香港散步学</div>
+      <div class="pill" data-cat="hk-flavor-1" onclick="setFilter('hk-flavor-1')"><span class="dot" style="background:var(--c-food)"></span>香港味道一</div>
+      <div class="pill" data-cat="field-map" onclick="setFilter('field-map')"><span class="dot" style="background:var(--gold)"></span>地图点位</div>
     </div>
     <div id="addBtn" onclick="toggleAdding()">＋ 添加点位</div>
   </div>
@@ -778,42 +772,35 @@ function isLayerActive(layer){
   return activeLayers.has(layer);
 }
 
-function getBasePlaceCats(){
-  return Object.keys(CATS);
-}
-
-function areAllBaseCatsActive(){
-  return getBasePlaceCats().every(cat=>activeLayers.has(cat));
-}
-
-function getVisiblePlaceCats(){
-  const cats=getBasePlaceCats().filter(cat=>activeLayers.has(cat));
-  if(cats.length)return cats;
-  return [];
+function getActiveCollectionLayerIds(){
+  return FOOD_COLLECTIONS.map(collection=>collection.id).filter(id=>activeLayers.has(id));
 }
 
 function getVisiblePlaces(){
-  const cats=getVisiblePlaceCats();
-  if(!cats.length)return [];
-  return places.filter(place=>cats.includes(place.cat));
+  if(!activeLayers.has('field-map'))return [];
+  return places;
+}
+
+function getPlacesInCurrentBounds(items){
+  if(!map?.getBounds)return items;
+  const bounds=map.getBounds();
+  if(!bounds)return items;
+  return items.filter(item=>bounds.contains({lat:item.lat,lng:item.lng}));
 }
 
 function syncFilterPills(){
   document.querySelectorAll('.pill').forEach(el=>{
     const cat=el.dataset.cat;
-    if(cat==='ALL'){
-      el.classList.toggle('active',areAllBaseCatsActive());
-      return;
-    }
     el.classList.toggle('active',isLayerActive(cat));
   });
 }
 
 function pickFallbackFocus(){
   if(activeLayers.has('ROUTE'))return 'ROUTE';
-  if(activeLayers.has('food'))return 'food';
-  const cat=getBasePlaceCats().find(layer=>activeLayers.has(layer));
-  return cat||'ALL';
+  const collectionId=getActiveCollectionLayerIds()[0];
+  if(collectionId)return collectionId;
+  if(activeLayers.has('field-map'))return 'field-map';
+  return 'ROUTE';
 }
 
 function createStopMeta(data={}){
@@ -1039,9 +1026,16 @@ async function initMap(){
   }
   map.addListener('click',e=>{
     infoWindow.close();
-    if(!addingMode)return;
+    if(!addingMode){
+      activePlaceOverlayId=null;
+      closeRoutePlaceCard();
+      return;
+    }
     exitAddingMode();
     openModal(e.latLng.lat(),e.latLng.lng());
+  });
+  map.addListener('idle',()=>{
+    if(focusedLayer==='field-map')renderCards();
   });
   document.getElementById('loading').classList.add('hidden');
   syncFilterPills();
@@ -1096,16 +1090,16 @@ function renderMarkers(){
 
 function renderCards(){
   if(focusedLayer==='ROUTE'){renderRoutePanel();return;}
-  if(focusedLayer==='food'&&activeCollectionId){renderCollectionPanel();return;}
-  const visible=focusedLayer==='ALL'?getVisiblePlaces():places.filter(p=>p.cat===focusedLayer);
+  if(activeCollectionId&&focusedLayer===activeCollectionId){renderCollectionPanel();return;}
+  const visible=focusedLayer==='field-map'?getPlacesInCurrentBounds(getVisiblePlaces()):[];
   const list=document.getElementById('card-list');
   const empty=document.getElementById('empty');
   document.getElementById('route-panel').classList.remove('visible');
   document.getElementById('card-list').style.display='';
   document.getElementById('empty').style.display='';
-  document.getElementById('sidebar-title').textContent=focusedLayer==='food'?'饮食地图':focusedLayer==='ALL'?'地图总览':'地图标记';
-  document.getElementById('sidebar-count').textContent=focusedLayer==='food'?`${visible.length} 个已有地点 · ${FOOD_COLLECTIONS.length} 个专题餐厅集`:`${visible.length} 个地点`;
-  const collectionHtml=focusedLayer==='food'&&FOOD_COLLECTIONS.length?`<div class="collection-group-title">专题餐厅图层</div>${FOOD_COLLECTIONS.map(renderCollectionEntry).join('')}`:'';
+  document.getElementById('sidebar-title').textContent=focusedLayer==='field-map'?'地图点位':'来源图层';
+  document.getElementById('sidebar-count').textContent=focusedLayer==='field-map'?`当前视野 ${visible.length} 个地点`:`${FOOD_COLLECTIONS.length} 个专题`;
+  const collectionHtml=FOOD_COLLECTIONS.length?`<div class="collection-group-title">书单与专题</div>${FOOD_COLLECTIONS.map(renderCollectionEntry).join('')}`:'';
   if(visible.length===0&&!collectionHtml){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   list.innerHTML=collectionHtml+visible.map(p=>{
@@ -1125,12 +1119,12 @@ function renderCollectionEntry(collection){
       <span class="collection-card-chip">${collection.stops.length} 家</span>
     </div>
     <div class="collection-card-meta">
-      <span class="collection-card-chip">可与推荐路线叠加显示</span>
+      <span class="collection-card-chip">可与香港散步学路线叠加显示</span>
       <span class="collection-card-chip">Google 评价 + 高德导航</span>
     </div>
     <div class="collection-card-actions">
-      <button class="collection-card-btn primary" onclick="event.stopPropagation();openFoodCollection('${collection.id}')">${isActive?'继续查看餐厅列表':'打开餐厅列表'}</button>
-      <button class="collection-card-btn" onclick="event.stopPropagation();toggleFoodCollectionOverlay('${collection.id}')">${isActive?'从地图隐藏':'叠加到地图'}</button>
+      <button class="collection-card-btn primary" onclick="event.stopPropagation();openFoodCollection('${collection.id}')">${isActive?'继续查看推荐点':'查看推荐点'}</button>
+      <button class="collection-card-btn" onclick="event.stopPropagation();toggleFoodCollectionOverlay('${collection.id}')">${isLayerActive(collection.id)?'从地图隐藏':'叠加到地图'}</button>
     </div>
   </div>`;
 }
@@ -1363,7 +1357,7 @@ function getMapPadding(){
     if(isLayerActive('ROUTE')&&activeRouteId&&focusedLayer==='ROUTE'){
       return sidebarCollapsed?{top:70,bottom:132,left:28,right:28}:{top:70,bottom:298,left:28,right:28};
     }
-    if(activeCollectionId&&focusedLayer==='food'){
+    if(activeCollectionId&&focusedLayer===activeCollectionId){
       return sidebarCollapsed?{top:70,bottom:132,left:28,right:28}:{top:70,bottom:298,left:28,right:28};
     }
     return sidebarCollapsed?{top:70,bottom:86,left:34,right:34}:{top:70,bottom:280,left:34,right:34};
@@ -1407,7 +1401,7 @@ function buildRouteMapCard(route,s,idx){
 
 function backToRouteList(){
   activeStopIdx=null;
-  if(focusedLayer==='food'){
+  if(focusedLayer===activeCollectionId){
     activeCollectionId=null;
     closeRoutePlaceCard();
     infoWindow.close();
@@ -1426,26 +1420,12 @@ function render(){renderMarkers();renderCards();}
 function setFilter(cat){
   activeCard=null;
   infoWindow?.close();
-  if(cat==='ALL'){
-    const enable=!areAllBaseCatsActive();
-    getBasePlaceCats().forEach(layer=>{
-      if(enable)activeLayers.add(layer);
-      else activeLayers.delete(layer);
-    });
-    focusedLayer='ALL';
-    activeCollectionId=null;
-    activeStopIdx=null;
-    closeRoutePlaceCard();
-    syncFilterPills();
-    render();
-    return;
-  }
   if(isLayerActive(cat)&&focusedLayer!==cat){
     focusedLayer=cat;
     syncFilterPills();
     render();
     if(cat==='ROUTE'&&activeRouteId)showRouteStop(activeRouteId,activeStopIdx??0,false);
-    if(cat==='food'&&activeCollectionId)showCollectionStop(activeCollectionId,activeStopIdx??0,false);
+    if(cat===activeCollectionId&&activeCollectionId)showCollectionStop(activeCollectionId,activeStopIdx??0,false);
     return;
   }
   const nextActive=!isLayerActive(cat);
@@ -1466,11 +1446,16 @@ function setFilter(cat){
       activeRouteId=null;
       activeStopIdx=null;
     }
-  }else if(cat==='food'&&!nextActive){
-    activeCollectionId=null;
-    activeStopIdx=null;
-    closeRoutePlaceCard();
-  }else if(cat!=='food'){
+  }else if(FOOD_COLLECTIONS.some(collection=>collection.id===cat)){
+    if(nextActive){
+      activeCollectionId=cat;
+      activeStopIdx=0;
+    }else if(activeCollectionId===cat){
+      activeCollectionId=null;
+      activeStopIdx=null;
+      closeRoutePlaceCard();
+    }
+  }else{
     activeCollectionId=null;
     activeStopIdx=null;
   }
@@ -1525,8 +1510,8 @@ async function savePoint(){
   const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='保存中…';
   const p={id:nextId++,name,cat:selectedCat,lat,lng,desc:document.getElementById('f-desc').value.trim()};
   places.push(p);closeModal();
-  activeLayers.add(p.cat);
-  focusedLayer=p.cat;
+  activeLayers.add('field-map');
+  focusedLayer='field-map';
   syncFilterPills();
   render();
   setTimeout(()=>focusCard(p.id),100);
@@ -1563,7 +1548,7 @@ window.addEventListener('resize',()=>{
       mapProvider.fitBounds(map,bounds,getMapPadding());
     }
   }
-  if(activeCollectionId&&focusedLayer==='food'){
+  if(activeCollectionId&&focusedLayer===activeCollectionId){
     const collection=getActiveFoodCollection();
     if(collection&&shouldUseMobileRouteCards())renderCollectionCardStrip(collection);
   }
@@ -2008,8 +1993,8 @@ function makeRouteStopIcon(num,color,active=false){
   return{url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:mapProvider.createSize(scale,anchorY),anchor:mapProvider.createPoint(anchorX,anchorY)};
 }
 function openFoodCollection(id){
-  activeLayers.add('food');
-  focusedLayer='food';
+  activeLayers.add(id);
+  focusedLayer=id;
   activeCollectionId=id;
   activeStopIdx=0;
   syncFilterPills();
@@ -2039,7 +2024,7 @@ async function showCollectionStop(collectionId,idx,scrollCard=true){
   const stop=collection?.stops?.[idx];
   if(!collection||!stop)return;
   activeCollectionId=collectionId;
-  focusedLayer='food';
+  focusedLayer=collectionId;
   activeStopIdx=idx;
   const resolved=await resolveCollectionStop(stop);
   if(shouldUseMobileRouteCards()){
