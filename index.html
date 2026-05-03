@@ -1088,7 +1088,8 @@ async function initMap(){
   syncFilterPills();
   render();
   if(isLayerActive('ROUTE')&&ROUTES.length){
-    selectRoute(activeRouteId||ROUTES[0].id);
+    if(isMobileLayout())openRouteListMode();
+    else selectRoute(activeRouteId||ROUTES[0].id);
   }
   setSidebarCollapsed(false);
   preloadPlacesLibrary();
@@ -1477,6 +1478,13 @@ function backToRouteList(){
   document.getElementById('sidebar-count').textContent=`${ROUTES.length} 条路线`;
   infoWindow.close();
 }
+function openRouteListMode(){
+  focusedLayer='ROUTE';
+  activeStopIdx=null;
+  closeRoutePlaceCard();
+  renderRoutePanel();
+  if(isMobileLayout())setSidebarCollapsed(false);
+}
 
 function render(){renderMarkers();renderCards();}
 
@@ -1487,7 +1495,10 @@ function setFilter(cat){
     focusedLayer=cat;
     syncFilterPills();
     render();
-    if(cat==='ROUTE'&&activeRouteId)showRouteStop(activeRouteId,activeStopIdx??0,false);
+    if(cat==='ROUTE'){
+      if(isMobileLayout())openRouteListMode();
+      else if(activeRouteId)showRouteStop(activeRouteId,activeStopIdx??0,false);
+    }
     if(cat===activeCollectionId&&activeCollectionId)showCollectionStop(activeCollectionId,activeStopIdx??0,false);
     return;
   }
@@ -1500,7 +1511,8 @@ function setFilter(cat){
     if(nextActive&&ROUTES.length){
       syncFilterPills();
       render();
-      if(!activeRouteId)selectRoute(ROUTES[0].id);
+      if(isMobileLayout())openRouteListMode();
+      else if(!activeRouteId)selectRoute(ROUTES[0].id);
       else selectRoute(activeRouteId);
       return;
     }
